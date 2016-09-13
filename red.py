@@ -23,55 +23,54 @@ logger.setLevel(logging.INFO)
 
 hrmqHst = 'localhost'
 
-class Scheduler(object):
+class Scheduler(BackgroundScheduler):
     def __init__(self, ScheduleModel, refreshInterval):
-        self.scheduler = BackgroundScheduler()
+        super(BackgroundScheduler, self).__init__()
+        #self.scheduler = BackgroundScheduler()
         #print dir (self.scheduler)
-        self.ScheduleModel = ScheduleModel
+        self.scheduleModel = ScheduleModel
         self.refreshInterval = refreshInterval
         self.fillSchedule()
-        self.startScheduler()
+        self.start()
 
     def getAllActiveTasksFromDB(self):
-        return self.ScheduleModel.query.filter_by(enabled=True).all()
+        return self.scheduleModel.query.filter_by(enabled=True).all()
 
     def fillSchedule(self):
-        self.removeAllJobs()
-        print "reloaded"
+        self.remove_all_jobs()
         tasks = self.getAllActiveTasksFromDB()
         for task in tasks:
-            # (task.host_id, task.plugin_id, task.interval)s
-            self.scheduler.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
-                                    args=[task.plugins.name, task.host.hostname, task.host.ipaddress, task.interval]) #
-        #self.scheduler.add_job(self.fillSchedule, id = 'internal1', trigger = 'interval', seconds = self.refreshInterval)
+            self.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
+                                    args=[task.plugins.name, task.host.hostname, task.host.ipaddress, task.interval])
+        print "reloaded"
 
-    def addJob(self, id):
-        task = ScheduleModel.query.filter_by(enabled=True, id=id).all()
-        self.scheduler.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
+    def addJobFromDB(self, id):
+        task = self.scheduleModel.query.filter_by(enabled=True, id=id).all()
+        self.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
                                 args=[task.plugins.name, task.host.hostname, task.interval])# ,
-    def removeJob(self, id):
-        self.scheduler.remove_job(id)
+    #def removeJob(self, id):
+    #    self.scheduler.remove_job(id)
 
-    def removeAllJobs(self):
-        self.scheduler.remove_all_jobs()
+    #def removeAllJobs(self):
+    #    self.scheduler.remove_all_jobs()
 
-    def pauseJob(self, id):
-        self.scheduler.pause_job(id)
+    #def pauseJob(self, id):
+    #    self.scheduler.pause_job(id)
 
-    def resumeAllJobs(self):
-        self.scheduler.resume()
+    #def resumeAllJobs(self):
+    #    self.scheduler.resume()
 
-    def resumeJob(self, id):
-        self.scheduler.resume_job(id)
+    #def resumeJob(self, id):
+    #    self.scheduler.resume_job(id)
 
-    def pauseAllJobs(self):
-        self.scheduler.pause()
+    #def pauseAllJobs(self):
+    #    self.scheduler.pause()
 
-    def getJob(self, id):
-        print self.scheduler.get_job(id)
+    #def getJob(self, id):
+    #    print self.scheduler.get_job(id)
 
-    def getAllJobs(self):
-        print self.scheduler.get_jobs()
+    #def getAllJobs(self):
+    #    print self.scheduler.get_jobs()
 
     def event(self, job, host, ip, interval):
         message = {}
@@ -88,8 +87,8 @@ class Scheduler(object):
                                                                     host,
                                                                     interval))
 
-    def startScheduler(self):
-        self.scheduler.start()
+    #def startScheduler(self):
+    #    self.scheduler.start()
 
 def run_scheduler():
     try:
@@ -105,7 +104,7 @@ redapp = Flask('red')
 @redapp.route('/job/add/<id_>', methods=['GET','POST'])
 def add_job(id_):
     #try:
-    ss.addJob(id_)
+    ss.addJobFromDB(id_)
     #except:
     #    abort(500)
     return 'Hello, World!'
@@ -113,16 +112,16 @@ def add_job(id_):
 @redapp.route('/job/remove/<id_>', methods=['GET','POST'])
 def remove_job(id_):
     if id_ == 'all':
-        ss.removeAllJobs()
+        ss.remove_all_jobs()
     return 'removed'
 
 @redapp.route('/job/get/<id_>', methods=['GET','POST'])
 def get_job(id_):
     if id_ == 'all':
-        ss.getAllJobs()
+        ss.get_jobs()
     else:
         try:
-            ss.getJob(int(id_))
+            ss.get_job(int(id_))
         except:
             abort(500)
     return '200'
@@ -130,10 +129,10 @@ def get_job(id_):
 @redapp.route('/job/pause/<id_>', methods=['GET','POST'])
 def pause_job(id_):
     if id_ == 'all':
-        ss.pauseAllJobs()
+        ss.pause()
     else:
         try:
-            ss.pauseJob(id_)
+            ss.pause_job(id_)
         except:
             abort(500)
     return '200'
@@ -141,10 +140,10 @@ def pause_job(id_):
 @redapp.route('/job/resume/<id_>', methods=['GET','POST'])
 def resume_job(id_):
     if id_ == 'all':
-        ss.resumeAllJobs()
+        ss.resume()
     else:
         try:
-            ss.resumeJob(id_)
+            ss.resume_job(id_)
         except:
             abort(500)
     return '200'
