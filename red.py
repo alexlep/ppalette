@@ -9,6 +9,7 @@ import json
 
 logFileName = 'red.log'
 hrmqHst = 'localhost'
+mqQueueName = 'redqueue'
 
 logger = logging.getLogger('')
 hdlr = logging.FileHandler(logFileName)
@@ -24,6 +25,9 @@ class Scheduler(BackgroundScheduler):
         self.scheduleModel = ScheduleModel
         self.refreshInterval = refreshInterval
         self.fillSchedule()
+        self.rmqConnection = pika.BlockingConnection(pika.ConnectionParameters(host=hrmqHst))
+        self.rmgChannel = self.rmqConnection.channel()
+        self.rmgChannel.queue_declare(queue=mqQueueName)
         self.start()
 
     def getAllActiveTasksFromDB(self):
@@ -50,11 +54,9 @@ class Scheduler(BackgroundScheduler):
         message['host'] = host
         message['ip'] = ip
         msg = json.dumps(message)
-        rmqConnection = pika.BlockingConnection(pika.ConnectionParameters(host=hrmqHst))
-        rmgChannel = rmqConnection.channel()
-        rmgChannel.queue_declare(queue='redqueue')
-        rmgChannel.basic_publish(exchange='', routing_key='hello', body=msg)
 
+        self.rmgChannel.basic_publish(exchange='', routing_key=mqQueueName, body=msg)
+        #rmqConnection.close()
         print('{0} was sent to queue for {1} at (interval is {2})'.format(job,
                                                                     host,
                                                                     interval))

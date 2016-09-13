@@ -1,17 +1,24 @@
 import pika
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host='localhost'))
-channel = connection.channel()
+inQueue = 'redqueue'
+outQueue = 'violetqueue'
+rabbitMQHost = 'localhost'
 
-channel.queue_declare(queue='redqueue')
+inConnection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitMQHost))
+outConnection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitMQHost))
+inChannel = inConnection.channel()
+outChannel = outConnection.channel()
+
+inChannel.queue_declare(queue=inQueue)
+outChannel.queue_declare(queue=outQueue)
 
 def callback(ch, method, properties, body):
-    print(" [x] Received %r" % body)
+    msg = (" [x] Received %r" % body)
+    print msg
+    outChannel.basic_publish(exchange='', routing_key=outQueue, body=msg)
 
-channel.basic_consume(callback,
-                      queue='hello',
-                      no_ack=True)
+
+inChannel.basic_consume(callback, queue=inQueue, no_ack=True)
 
 print(' [*] Waiting for messages. To exit press CTRL+C')
-channel.start_consuming()
+inChannel.start_consuming()
