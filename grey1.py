@@ -1,9 +1,10 @@
 import pika, json
-from core import database
+from core.database import init_db, db_session
 from core.models import Schedule as TaskModel
 from datetime import datetime
+from sqlalchemy import update
 
-database.init_db()
+init_db()
 
 
 connection = pika.BlockingConnection(pika.ConnectionParameters(
@@ -16,9 +17,10 @@ def callback(ch, method, properties, body):
     msg = (" [x] Received %r" % body)
     print msg
     jmsg = json.loads(body)
-    check_time = datetime.strptime(jmsg['time'], "%H:%M:%d:%m:%Y")
-    #print dir(TaskModel)
-    TaskModel.__table__.update().where(TaskModel.id==int(jmsg['taskid'])).values(last_status=jmsg['output'], last_exitcode = jmsg['exitcode'], last_check_run = check_time)
+    check_time = datetime.strptime(jmsg['time'], "%H:%M:%S:%d:%m:%Y")
+    updateQ = update(TaskModel).where(TaskModel.id==jmsg['taskid']).values(last_status=jmsg['output'], last_exitcode = jmsg['exitcode'], last_check_run = check_time)
+    db_session.execute(updateQ)
+    db_session.commit()
     #rmgChannel.basic_publish(exchange='direct', routing_key='violetqueue', body=msg)
 
 

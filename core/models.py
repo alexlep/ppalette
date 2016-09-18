@@ -43,7 +43,7 @@ class Host(Base):
     def get_id(self):
             return self.id"""
     def __unicode__(self):
-            return self.hostname
+            return "{0} ({1})".format(self.hostname, self.ipaddress)
 
 #class Subnet(Model):
 class Subnet(Base):
@@ -80,7 +80,7 @@ class Schedule(Base):
     host = relationship(Host, backref='schedule')
     plugin_id = Column(Integer(), ForeignKey(Plugin.id))
     plugin = relationship(Plugin, backref='schedule')
-    last_check_run = Column(DateTime, default=datetime.fromtimestamp(1284286794))
+    last_check_run = Column(DateTime, default=datetime.fromtimestamp(0))
     last_status = Column(String(1000))
     last_exitcode = Column(Integer)
 

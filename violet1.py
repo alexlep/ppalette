@@ -1,9 +1,6 @@
 import pika, json, sys, subprocess
 from datetime import datetime
 config = './config/violet_config.json'
-inQueue = 'redqueue'
-outQueue = 'violetqueue'
-rabbitMQHost = 'localhost'
 
 class Violet(object):
     def __init__(self, config):
@@ -25,7 +22,7 @@ class Violet(object):
         try:
             self.inChannel.start_consuming()
         except KeyboardInterrupt:
-            print "aborted with your little filthy hand!"
+            print "aborted with your little filthy hands!"
 
     def parseConfig(self, config):
         try:
@@ -57,9 +54,13 @@ class Violet(object):
     def executeProcess(self, command):
         feedback = {}
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        feedback['output'] = process.communicate()[0].rstrip() # here subprocess is killed
+        out = process.communicate()[0].rstrip() # here subprocess is killed
+        try:
+            feedback['output'], feedback['details'] = out.split("|")
+        except ValueError:
+            feedback['output'], feedback['details'] = out, None
         feedback['exitcode'] = process.returncode
-        feedback['time'] = datetime.now().strftime("%H:%M:%d:%m:%Y")
+        feedback['time'] = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
         return feedback
 
     def callback(self, ch, method, properties, body):
