@@ -1,6 +1,8 @@
 from flask import Flask, abort
 from datetime import datetime, timedelta
 from core import database
+database.init_db()
+
 from core.models import Schedule as ScheduleModel
 import sys, os, pika
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -17,6 +19,7 @@ formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 hdlr.setFormatter(formatter)
 logger.addHandler(hdlr)
 logger.setLevel(logging.INFO)
+
 
 
 class Scheduler(BackgroundScheduler):
@@ -46,20 +49,24 @@ class Scheduler(BackgroundScheduler):
 
     def registerJob(self, task):
         self.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
-                                args=[task.plugins.name, task.host.hostname, task.host.ipaddress, task.interval])
+                                args=[task])
 
-    def event(self, job, host, ip, interval):
+    def event(self, task):
         message = {}
-        message['plugin'] = job
-        message['host'] = host
-        message['ip'] = ip
+        # task.plugin.name, task.host.hostname, task.host.ipaddress, task.interval
+        message['plugin'] = task.plugin.name
+        message['host'] = task.host.hostname
+        message['ip'] = task.host.ipaddress
+        message['type'] = 'check'
+        message['params'] = task.plugin.params
+        message['taskid'] = task.id
         msg = json.dumps(message)
 
         self.rmgChannel.basic_publish(exchange='', routing_key=mqQueueName, body=msg)
         #rmqConnection.close()
-        print('{0} was sent to queue for {1} at (interval is {2})'.format(job,
-                                                                    host,
-                                                                    interval))
+        print('{0} was sent to queue for {1} at (interval is {2})'.format(task.plugin.name,
+                                                                    task.host.hostname,
+                                                                    task.interval))
 
 ss = Scheduler(ScheduleModel, 20)
 redapp = Flask('red')

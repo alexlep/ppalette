@@ -1,0 +1,16 @@
+{
+  "configuration" : {
+    "queue" : {
+      "host" : "localhost",
+      "port" : "",
+      "user" : "",
+      "pasword" : "",
+      "inqueue" : "redqueue",
+      "outqueue" : "violetqueue"
+    }
+  },
+  "checks" : {
+    "check_ping" : "/usr/lib/nagios/plugins/check_ping",
+    "check_ssh" : "/usr/lib/nagios/plugins/check_ssh"
+  }
+}

@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship
 from database import Base
+from datetime import datetime
 
 bcrypt = Bcrypt()
 #db = SQLAlchemy()
@@ -58,6 +59,7 @@ class Plugin(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
     description = Column(String(100))
+    params = Column(String(200))
 
     def __unicode__(self):
         return self.name
@@ -70,7 +72,6 @@ class Schedule(Base):
     desc = Column(String(100))
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
-    date_last_started = Column(DateTime, default=now())
     enabled = Column(Boolean(True))
     interval = Column(Integer)
     #user_id = Column(Integer(), ForeignKey(User.id))
@@ -78,10 +79,14 @@ class Schedule(Base):
     host_id = Column(Integer(), ForeignKey(Host.id))
     host = relationship(Host, backref='schedule')
     plugin_id = Column(Integer(), ForeignKey(Plugin.id))
-    plugins = relationship(Plugin, backref='schedule')
+    plugin = relationship(Plugin, backref='schedule')
+    last_check_run = Column(DateTime, default=datetime.fromtimestamp(1284286794))
+    last_status = Column(String(1000))
+    last_exitcode = Column(Integer)
+
 
     def __unicode__(self):
-        return '{0}_{1}s'.format(self.plugins.name, self.interval)
+        return '{0}_{1}s'.format(self.plugin.name, self.interval)
 '''
 art_arch_table = Table('arch_art_ids', Model.metadata,
         Column('arch_id', Integer, ForeignKey('archive_.id')),
