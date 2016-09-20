@@ -1,0 +1,15 @@
+{
+  "configuration" : {
+    "queue" : {
+      "host" : "localhost",
+      "port" : "",
+      "user" : "",
+      "pasword" : "",
+      "outqueue" : "bluequeue"
+    },
+  "log": {
+    "log_file" : "logs/blue.log",
+    "log_level" : "INFO"
+    }
+  }
+}

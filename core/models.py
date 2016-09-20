@@ -1,6 +1,6 @@
 #from flask.ext.sqlalchemy import SQLAlchemy
 #from wtforms.fields import PasswordField
-from flask.ext.bcrypt import Bcrypt
+from flask_bcrypt import Bcrypt
 from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql.functions import now

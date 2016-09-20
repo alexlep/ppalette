@@ -7,7 +7,11 @@
       "pasword" : "",
       "inqueue" : "redqueue",
       "outqueue" : "violetqueue"
-    }
+    },
+    "log": {
+      "log_file" : "logs/violet.log",
+      "log_level" : "INFO"
+      }
   },
   "checks" : {
     "check_ping" : "/usr/lib/nagios/plugins/check_ping",
