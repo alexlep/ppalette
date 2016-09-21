@@ -2,6 +2,10 @@ import pika
 
 class MQ(object):
     def __init__(self, type, config):
+        """
+        NOTE: for multiprocessing with ouka separate chanel should be used for each process or threaded
+        http://lists.rabbitmq.com/pipermail/rabbitmq-discuss/2013-September/030535.html
+        """
         self.config = config
         if type == 'c': # consumer
             self.inChannel = self.initConsumer()

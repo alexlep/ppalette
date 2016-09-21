@@ -23,6 +23,7 @@ class Violet(object):
 
     def executeCheck(self, queue): #plugin, params, ip):
         while True:
+            print "working", os.getpid()
             item = queue.get(True)
             try:
                 data = json.loads(item)
@@ -31,14 +32,13 @@ class Violet(object):
                 print "Cannot find value in decoded json: {0}".format(ke)
                 self.log.WARN("Error while decoding JSON. Problematic JSON is {0}".format(item))
                 continue
-            #plugin, params, ip = data['plugin'], data['params'], data['ip']
             try:
                 executor = self.config.checks[task.plugin]
             except:
                 print 'Plugin {0} not found in configuration'.format(task.plugin)
                 self.log.WARN('Plugin {0} not found in configuration'.format(task.plugin))
-            print task.params, data
-            print type(task.params)
+            #print task.params, data
+            #print type(task.params)
             if not task.params:
                 command = "{0} {1}".format(executor, task.ip)
             else:
@@ -48,8 +48,7 @@ class Violet(object):
             output['taskid'] = task.taskid
             msg = json.dumps(output)
             self.MQ.sendMessage(msg)
-        #os.kill(os.getpid(), signal.SIGTERM)
-        #return output
+            print "finished", os.getpid()
 
     def callback(self, ch, method, properties, body):
         self.PQ.put(body)

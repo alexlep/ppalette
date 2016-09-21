@@ -7,7 +7,6 @@ from core.mq import MQ
 from core import tools
 from flask_admin.contrib import sqla, fileadmin
 from sqlalchemy.sql.functions import now
-#from blueif.views import DashBoardView, ScheduleView
 
 blueConfig = './config/blue_config.json'
 
@@ -42,21 +41,6 @@ class ScheduleView(sqla.ModelView):
                                     value = model.enabled)
             MQ.sendMessage(message)
         return model
-
-        """if model.typeof == 1:
-        if is_created:
-        curTime = dt.now().replace(day=1, minute=0, hour=0, second=0, microsecond=0)
-        else:
-        curTime = model.date_created.replace(day=1, minute=0, hour=0, second=0, microsecond=0)
-        archive = Archive.query.filter_by(date=curTime).all()
-        try:
-        record = archive[0]
-        record.articles.append(model)
-        except IndexError:
-        newArch = Archive(curTime,  model)
-        db.session.add(newArch)
-        db.session.commit()"""
-
 
 class DashBoardView(sqla.ModelView):
     can_create = False

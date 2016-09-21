@@ -6,6 +6,7 @@ from core.database import init_db, db_session
 from core.mq import MQ
 from core.models import Schedule as ScheduleModel
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.base import ConflictingIdError
 
 redConfig = './config/red_config.json'
 
@@ -48,13 +49,20 @@ class Scheduler(BackgroundScheduler):
             self.registerJob(task)
         print "reloaded"
 
-    def addJobFromDB(self, id):
-        task = ScheduleModel.query.filter_by(id=id).first()
-        self.registerJob(task)
+    def addJobFromDB(self, jobid):
+        task = ScheduleModel.query.filter_by(id=jobid).first()
+        try:
+            self.registerJob(task)
+        except ConflictingIdError: # task already running, re-enabling, TODO: calculations with old task
+            print "removing"
+            self.remove_job(str(jobid))
+            print "adding"
+            self.registerJob(task)
 
     def registerJob(self, task):
         self.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
                                 args=[task])
+
 
     def event(self, task):
         message = tools.prepareDict(converted = True,
