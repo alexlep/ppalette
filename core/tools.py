@@ -14,7 +14,7 @@ def ping(host):
     return os.system("ping " + ping_str + " " + host) == 0
 """
 
-class Message:
+class draftClass:
     pass
 
 def parseConfig(config):
@@ -22,7 +22,6 @@ def parseConfig(config):
         with open(config) as config_file:
             config_data =  json.load(config_file)
             config_file.close()
-        return config_data
     except ValueError as ve:
         print "Error in configuration file {0}: {1}".format(config, ve)
         config_file.close()
@@ -30,6 +29,7 @@ def parseConfig(config):
     except IOError as ie:
         print "Error in opening configuration file {0}: {1}".format(config, ie)
         sys.exit(1)
+    return createClass(config_data)
 
 def executeProcess(command):
     feedback = {}
@@ -45,11 +45,11 @@ def executeProcess(command):
 
 def initLogging(logconfig):
     logger = logging.getLogger('')
-    hdlr = logging.FileHandler(logconfig['log_file'])
+    hdlr = logging.FileHandler(logconfig.log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
-    logger.setLevel(getattr(logging, logconfig['log_level']))
+    logger.setLevel(getattr(logging, logconfig.log_level))
 
 def prepareDict(converted,**kwargs):
     data = {}
@@ -67,7 +67,7 @@ def fromJSON(data):
         msg = None
     return msg
 
-def createMessage(dictdata):
-    message = Message()
-    message.__dict__.update(dictdata)
-    return message
+def createClass(dictdata):
+    emptyClass = draftClass()
+    emptyClass.__dict__.update(dictdata)
+    return emptyClass

@@ -1,7 +1,8 @@
 import sys, os, pika, logging, json
 from flask import Flask, abort
 from datetime import datetime, timedelta
-from core import database, tools
+from core import tools
+from core.database import init_db, db_session
 from core.mq import MQ
 from core.models import Schedule as ScheduleModel
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -11,18 +12,22 @@ redConfig = './config/red_config.json'
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
         super(BackgroundScheduler, self).__init__()
-        self.configFile = tools.parseConfig(configFile)
-        self.conf = self.configFile['configuration']
-        self.log = tools.initLogging(self.conf['log']) # init logging
-        self.MQ = MQ('m', self.conf['queue']) # init MQ
-        self.MQ.inChannel.basic_consume(self.taskChange, queue=self.MQ.inQueue, no_ack=True)
+        self.config = tools.parseConfig(configFile)
+        self.logConfig = tools.createClass(self.config.log)
+        self.queueConfig = tools.createClass(self.config.queue)
+        #self.log = tools.initLogging(self.logConfig) # init logging
+        self.MQ = MQ('m', self.queueConfig) # init MQ
+        if (not self.MQ.inChannel) or (not self.MQ.outChannel):
+            print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
+            sys.exit(1)
+        self.MQ.inChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
         self.fillSchedule()
         self.start()
 
     def taskChange(self, ch, method, properties, body):
         message = tools.fromJSON(body)
         if message:
-            msg = tools.createMessage(message)
+            msg = tools.createClass(message)
             if msg.value:
                 self.addJobFromDB(msg.taskid)
             else:
@@ -60,12 +65,16 @@ class Scheduler(BackgroundScheduler):
                                     params = task.plugin.params,
                                     taskid = task.id)
         self.MQ.sendMessage(message)
-        print('{0} was sent to queue for {1} at (interval is {2})'.format(task.plugin.name,
+        print('{0} was sent to queue for {1} at (interval is {2}, task is {3})'.format(task.plugin.name,
                                                                     task.host.hostname,
-                                                                    task.interval))
-database.init_db()
-ss = Scheduler(redConfig)
-try:
-    ss.startListener()
-except KeyboardInterrupt:
-    print "aborted once again..."
+                                                                task.interval, task.id))
+
+if __name__ =='__main__':
+    if not init_db():
+        print "Service is unable to connect to DB. Check if DB service is running. Aborting."
+        sys.exit(1)
+    ss = Scheduler(redConfig)
+    try:
+        ss.startListener()
+    except KeyboardInterrupt:
+        print "aborted once again..."

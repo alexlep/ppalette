@@ -1,28 +1,33 @@
 import pika
 
 class MQ(object):
-    def __init__(self, type, conf):
-        self.conf = conf
-        self.MQhost = self.conf['host']
+    def __init__(self, type, config):
+        self.config = config
         if type == 'c': # consumer
-            self.initConsumer()
+            self.inChannel = self.initConsumer()
         elif type == "s": #sender
-            self.initSender()
+            self.outChannel = self.initSender()
         elif type == 'm': # mixed
-            self.initConsumer()
-            self.initSender()
+            self.inChannel = self.initConsumer()
+            self.outChannel = self.initSender()
 
     def initConsumer(self):
-        self.inQueue = self.conf['inqueue']
-        self.inConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.MQhost))
-        self.inChannel = self.inConnection.channel()
-        self.inChannel.queue_declare(queue=self.inQueue)
+        try:
+            inConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
+            inChannel = inConnection.channel()
+            inChannel.queue_declare(queue=self.config.inqueue)
+        except pika.exceptions.ConnectionClosed:
+            inChannel = None
+        return inChannel
 
     def initSender(self):
-        self.outQueue = self.conf['outqueue']
-        self.outConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.MQhost))
-        self.outChannel = self.outConnection.channel()
-        self.outChannel.queue_declare(queue=self.outQueue)
+        try:
+            outConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
+            outChannel = outConnection.channel()
+            outChannel.queue_declare(queue=self.config.outqueue)
+        except pika.exceptions.ConnectionClosed:
+            outChannel = None
+        return outChannel
 
     def sendMessage(self, msg):
-        self.outChannel.basic_publish(exchange='', routing_key=self.outQueue, body=msg)
+        self.outChannel.basic_publish(exchange='', routing_key=self.config.outqueue, body=msg)

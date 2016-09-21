@@ -1,7 +1,7 @@
 import sys
 from flask import Flask
 from flask_admin import Admin
-from core.models import bcrypt, Host, Subnet, Plugin, Schedule
+from core.models import Host, Subnet, Plugin, Schedule #bcrypt,
 from core.database import init_db, db_session
 from core.mq import MQ
 from core import tools
@@ -11,15 +11,22 @@ from sqlalchemy.sql.functions import now
 
 blueConfig = './config/blue_config.json'
 
+config = tools.parseConfig(blueConfig)
+confQueue = tools.createClass(config.queue)
+confLog = tools.createClass(config.log)
+isMQ = confQueue.isMQ
 
-init_db()
+if not init_db():
+    print "Service is unable to connect to DB. Check if DB service is running. Aborting."
+    sys.exit(1)
 
+if isMQ:
+    MQ = MQ('s', confQueue) # init MQ
+    if (not MQ.outChannel):
+        print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
+        sys.exit(1)
 
-
-configFile = tools.parseConfig(blueConfig)
-conf = configFile['configuration']
-#log = tools.initLogging(conf['log']) # init logging
-MQ = MQ('s', conf['queue']) # init MQ
+#log = tools.initLogging(confLog) # init logging
 
 class ScheduleView(sqla.ModelView):
     column_list = ('enabled', 'plugin', 'host', 'interval', 'date_created', 'date_modified', 'desc', 'id')
@@ -27,12 +34,13 @@ class ScheduleView(sqla.ModelView):
 
     def on_model_change(self, form, model, is_created):
         model.date_modified = now()
-        message = tools.prepareDict(converted = True,
+        if isMQ:
+            message = tools.prepareDict(converted = True,
                                     type='taskChange',
                                     option='active',
                                     taskid = model.id,
                                     value = model.enabled)
-        MQ.sendMessage(message)
+            MQ.sendMessage(message)
         return model
 
         """if model.typeof == 1:
@@ -78,6 +86,6 @@ admin.add_view(ScheduleView(Schedule, db_session, name="Scheduler"))
 admin.add_view(sqla.ModelView(Subnet, db_session, name="Subnets"))
 
 #db.init_app(app)
-bcrypt.init_app(app)
+#bcrypt.init_app(app)
 
 app.run(debug=True, host='0.0.0.0', threaded=True)

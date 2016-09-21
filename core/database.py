@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import OperationalError
 #from flask.ext.sqlalchemy import SQLAlchemy
 
 engine = create_engine('mysql://test:test@localhost/palette', convert_unicode=True) #, echo=True) #('sqlite:///sample_db.sqlite')
@@ -17,4 +18,9 @@ def init_db():
     # you will have to import them first before calling init_db()
     import models
     #Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+        connected = True
+    except OperationalError:
+        connected = None
+    return connected
