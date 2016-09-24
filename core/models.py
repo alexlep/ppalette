@@ -1,3 +1,4 @@
+import tools
 #from flask_bcrypt import Bcrypt
 from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
@@ -28,16 +29,18 @@ class Subnet(Base):
 class Plugin(Base):
     __tablename__ = 'plugins'
     id = Column(Integer, primary_key=True)
-    name = Column(String(100))
+    check = Column(String(100))
+    customname = Column(String(100))
     description = Column(String(100))
     params = Column(String(200))
 
     def __unicode__(self):
-        return self.name
+        return self.customname
 
 class Schedule(Base):
     __tablename__ = 'schedule'
     id = Column(Integer, primary_key=True)
+    taskid = Column(String(36), default=tools.getUniqueID())
     desc = Column(String(100))
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
@@ -52,4 +55,4 @@ class Schedule(Base):
     last_exitcode = Column(Integer)
 
     def __unicode__(self):
-        return '{0}_{1}s'.format(self.plugin.name, self.interval)
+        return self.plugin.customname

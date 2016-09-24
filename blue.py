@@ -21,7 +21,8 @@ if not init_db():
 
 if isMQ:
     MQ = MQ('s', confQueue) # init MQ
-    if (not MQ.outChannel):
+    mqOutChannel = MQ.initOutChannel()
+    if (not mqOutChannel):
         print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
         sys.exit(1)
 
@@ -29,7 +30,7 @@ if isMQ:
 
 class ScheduleView(sqla.ModelView):
     column_list = ('enabled', 'plugin', 'host', 'interval', 'date_created', 'date_modified', 'desc', 'id')
-    form_excluded_columns = ('date_created','date_modified', 'last_check_run', 'last_status', 'last_exitcode')
+    form_excluded_columns = ('taskid', 'date_created','date_modified', 'last_check_run', 'last_status', 'last_exitcode')
 
     def on_model_change(self, form, model, is_created):
         model.date_modified = now()
@@ -39,7 +40,10 @@ class ScheduleView(sqla.ModelView):
                                     option='active',
                                     taskid = model.id,
                                     value = model.enabled)
-            MQ.sendMessage(message)
+            try: # TODO: HANDLE!
+                MQ.sendMessage(message)
+            except:
+                pass
         return model
 
 class DashBoardView(sqla.ModelView):

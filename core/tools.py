@@ -1,4 +1,9 @@
-import sys, json, subprocess, logging, json
+import sys
+import json
+import subprocess
+import logging
+import json
+import uuid
 from datetime import datetime
 
 """
@@ -71,3 +76,6 @@ def createClass(dictdata):
     emptyClass = draftClass()
     emptyClass.__dict__.update(dictdata)
     return emptyClass
+
+def getUniqueID():
+    return str(uuid.uuid4())

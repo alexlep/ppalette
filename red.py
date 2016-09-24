@@ -16,12 +16,14 @@ class Scheduler(BackgroundScheduler):
         self.config = tools.parseConfig(configFile)
         self.logConfig = tools.createClass(self.config.log)
         self.queueConfig = tools.createClass(self.config.queue)
-        #self.log = tools.initLogging(self.logConfig) # init logging
+        self.log = tools.initLogging(self.logConfig) # init logging
         self.MQ = MQ('m', self.queueConfig) # init MQ
-        if (not self.MQ.inChannel) or (not self.MQ.outChannel):
+        self.mqInChannel = self.MQ.initInChannel() # from blue
+        self.mqOutChannel = self.MQ.initOutChannel() # to violet
+        if (not self.mqInChannel) or (not self.mqOutChannel):
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
-        self.MQ.inChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
+        self.mqInChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
         self.fillSchedule()
         self.start()
 
@@ -37,7 +39,7 @@ class Scheduler(BackgroundScheduler):
             self.log.WARN("An error while decoding json through API interface")
 
     def startListener(self):
-        self.MQ.inChannel.start_consuming()
+        self.mqInChannel.start_consuming()
 
     def getAllActiveTasksFromDB(self):
         return ScheduleModel.query.filter_by(enabled=True).all()
@@ -66,16 +68,16 @@ class Scheduler(BackgroundScheduler):
 
     def event(self, task):
         message = tools.prepareDict(converted = True,
-                                    plugin = task.plugin.name,
+                                    plugin = task.plugin.check,
                                     host = task.host.hostname,
                                     ip = task.host.ipaddress,
                                     type = "check",
                                     params = task.plugin.params,
-                                    taskid = task.id)
-        self.MQ.sendMessage(message)
-        print('{0} was sent to queue for {1} at (interval is {2}, task is {3})'.format(task.plugin.name,
+                                    taskid = task.taskid)
+        self.mqOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
+        print('{0} was sent to queue for {1} at (interval is {2}, task is {3})'.format(task.plugin.check,
                                                                     task.host.hostname,
-                                                                task.interval, task.id))
+                                                                task.interval, task.taskid))
 
 if __name__ =='__main__':
     if not init_db():

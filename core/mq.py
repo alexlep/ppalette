@@ -8,30 +8,28 @@ class MQ(object):
         """
         self.config = config
         if type == 'c': # consumer
-            self.inChannel = self.initConsumer()
+            self.inConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
         elif type == "s": #sender
-            self.outChannel = self.initSender()
+            self.outConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
         elif type == 'm': # mixed
-            self.inChannel = self.initConsumer()
-            self.outChannel = self.initSender()
+            self.inConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
+            self.outConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
 
-    def initConsumer(self):
+    def initInChannel(self):
         try:
-            inConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
-            inChannel = inConnection.channel()
+            inChannel = self.inConnection.channel()
             inChannel.queue_declare(queue=self.config.inqueue)
         except pika.exceptions.ConnectionClosed:
             inChannel = None
         return inChannel
 
-    def initSender(self):
+    def initOutChannel(self):
         try:
-            outConnection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
-            outChannel = outConnection.channel()
+            outChannel = self.outConnection.channel()
             outChannel.queue_declare(queue=self.config.outqueue)
         except pika.exceptions.ConnectionClosed:
             outChannel = None
         return outChannel
 
-    def sendMessage(self, msg):
-        self.outChannel.basic_publish(exchange='', routing_key=self.config.outqueue, body=msg)
+    def sendMessage(self, conn, msg):
+        getattr (conn, (basic_publish(exchange='', routing_key=self.config.outqueue, body=msg)))

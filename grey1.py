@@ -18,11 +18,9 @@ def callback(ch, method, properties, body):
     print msg
     jmsg = json.loads(body)
     check_time = datetime.strptime(jmsg['time'], "%H:%M:%S:%d:%m:%Y")
-    updateQ = update(TaskModel).where(TaskModel.id==jmsg['taskid']).values(last_status=jmsg['output'], last_exitcode = jmsg['exitcode'], last_check_run = check_time)
+    updateQ = update(TaskModel).where(TaskModel.taskid==jmsg['taskid']).values(last_status=jmsg['output'], last_exitcode = jmsg['exitcode'], last_check_run = check_time)
     db_session.execute(updateQ)
     db_session.commit()
-    #rmgChannel.basic_publish(exchange='direct', routing_key='violetqueue', body=msg)
-
 
 channel.basic_consume(callback, queue='violetqueue', no_ack=True)
 
