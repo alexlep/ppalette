@@ -20,7 +20,7 @@ class Host(Base):
     maintenance = Column(Boolean(False), default = False)
 
     def __unicode__(self):
-            return "{0} ({1})".format(self.hostname, self.ipaddress)
+        return self.hostname
 
 class Subnet(Base):
     __tablename__ = 'subnet'
@@ -28,6 +28,9 @@ class Subnet(Base):
     subnet = Column(String(100))
     netmask = Column(String(100))
     subnetdesc = Column(String(100))
+
+    def __unicode__(self):
+        return self.subnet
 
 class Plugin(Base):
     __tablename__ = 'plugins'
@@ -60,7 +63,7 @@ class Schedule(Base):
     def __unicode__(self):
         return self.plugin.customname
 
-#@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
+@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
 class History(Base):
     __tablename__ = 'history'
     id = Column(Integer, primary_key=True)

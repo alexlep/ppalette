@@ -53,12 +53,13 @@ class ScheduleView(sqla.ModelView):
         #return model
 
 class DashBoardView(sqla.ModelView):
+    list_template = 'palist.html'
     can_create = False
     can_delete = False
     can_edit = False
     column_display_pk = False
     can_export = True
-    column_list = ('host', 'plugin', 'last_check_run', 'last_status', 'last_exitcode')
+    column_list = ('host', 'host.ipaddress', 'plugin', 'last_check_run', 'last_status', 'last_exitcode')
 
 
 arg = ''.join(sys.argv[1:]) or True
@@ -85,4 +86,4 @@ admin.add_view(sqla.ModelView(History, db_session, name="History"))
 #db.init_app(app)
 #bcrypt.init_app(app)
 
-#app.run(debug=True, host='0.0.0.0', threaded=True)
+app.run(debug=True, host='0.0.0.0', threaded=True)
