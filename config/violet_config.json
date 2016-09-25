@@ -14,6 +14,7 @@
   },
   "checks" : {
     "check_ping" : "/usr/lib/nagios/plugins/check_ping",
-    "check_ssh" : "/usr/lib/nagios/plugins/check_ssh"
+    "check_ssh" : "/usr/lib/nagios/plugins/check_ssh",
+    "check_http" : "/usr/lib/nagios/plugins/check_http"
   }
 }

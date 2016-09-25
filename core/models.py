@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import tools
+import architect
 #from flask_bcrypt import Bcrypt
 from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
@@ -58,19 +60,19 @@ class Schedule(Base):
     def __unicode__(self):
         return self.plugin.customname
 
+#@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
 class History(Base):
     __tablename__ = 'history'
     id = Column(Integer, primary_key=True)
-    taskid = Column(String(36), unique=True)
     desc = Column(String(100))
     interval = Column(Integer)
-    host_id = Column(Integer(), ForeignKey(Host.id))
-    host = relationship(Host, backref='history')
-    plugin_id = Column(Integer(), ForeignKey(Plugin.id))
-    plugin = relationship(Plugin, backref='history')
-    last_check_run = Column(DateTime, default=datetime.fromtimestamp(0))
-    last_status = Column(String(1000))
-    last_exitcode = Column(Integer)
+    host_id = Column(Integer()) #, ForeignKey(Host.id))
+    #host = relationship(Host, backref='history')
+    plugin_id = Column(Integer()) # ForeignKey(Plugin.id))
+    #plugin = relationship(Plugin, backref='history')
+    check_run_time = Column(DateTime, default=datetime.fromtimestamp(0))
+    check_status = Column(String(1000))
+    check_exicode = Column(Integer)
 
     def __unicode__(self):
-        return self.plugin.customname
+        return self.plugin.last_status

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pika, json
 from core.database import init_db, db_session
 from core.models import Schedule

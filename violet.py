@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pika, json, sys, os, signal, time
 import multiprocessing as mp
 from core.mq import MQ

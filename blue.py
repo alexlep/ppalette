@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 from flask import Flask
 from flask_admin import Admin
@@ -15,9 +16,6 @@ confQueue = tools.createClass(config.queue)
 confLog = tools.createClass(config.log)
 isMQ = confQueue.isMQ
 
-if not init_db():
-    print "Service is unable to connect to DB. Check if DB service is running. Aborting."
-    sys.exit(1)
 
 if isMQ:
     MQ = MQ('s', confQueue) # init MQ
@@ -65,15 +63,17 @@ class DashBoardView(sqla.ModelView):
 
 arg = ''.join(sys.argv[1:]) or True
 if arg == 'i':
+    dbc = init_db(create_tables=True)
+else:
+    dbc = init_db(create_tables=False)
 
-    with main.app.app_context():
-    #drop_all_tables_and_sequences(db.engine)
-        #print dir(models.Base)
-        models.Base.metadata.drop_all()
-        models.Base.metadata.create_all()
+if not dbc:
+    print "Service is unable to connect to DB. Check if DB service is running. Aborting."
+    sys.exit(1)
 
 app = Flask (__name__)
 app.secret_key="a92547e3847063649d9d732a183418bf"
+app.config['DEBUG'] = True
 
 admin = Admin (app, name='blue', template_mode='bootstrap3', url='/', index_view=DashBoardView(Schedule, db_session, url='/', endpoint='admin', name='Dashboard'))
 admin.add_view(sqla.ModelView(Host, db_session, name="Hosts"))
@@ -85,4 +85,4 @@ admin.add_view(sqla.ModelView(History, db_session, name="History"))
 #db.init_app(app)
 #bcrypt.init_app(app)
 
-app.run(debug=True, host='0.0.0.0', threaded=True)
+#app.run(debug=True, host='0.0.0.0', threaded=True)

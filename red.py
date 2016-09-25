@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys, os, pika, logging, json
 from flask import Flask, abort
 from datetime import datetime, timedelta
@@ -83,7 +84,7 @@ class Scheduler(BackgroundScheduler):
                                                                 task.interval, task.taskid))
 
 if __name__ =='__main__':
-    if not init_db():
+    if not init_db(False):
         print "Service is unable to connect to DB. Check if DB service is running. Aborting."
         sys.exit(1)
     ss = Scheduler(redConfig)
