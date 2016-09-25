@@ -15,6 +15,7 @@ class Host(Base):
     hostname = Column(String(100))
     ipaddress = Column(String(100))
     login = Column(String(80), unique=True)
+    maintenance = Column(Boolean(False), default = False)
 
     def __unicode__(self):
             return "{0} ({1})".format(self.hostname, self.ipaddress)
@@ -40,16 +41,33 @@ class Plugin(Base):
 class Schedule(Base):
     __tablename__ = 'schedule'
     id = Column(Integer, primary_key=True)
-    taskid = Column(String(36), default=tools.getUniqueID())
+    taskid = Column(String(36), unique=True)
     desc = Column(String(100))
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
-    enabled = Column(Boolean(True))
-    interval = Column(Integer)
+    enabled = Column(Boolean(True), default = True)
+    interval = Column(Integer, default=10)
     host_id = Column(Integer(), ForeignKey(Host.id))
     host = relationship(Host, backref='schedule')
     plugin_id = Column(Integer(), ForeignKey(Plugin.id))
     plugin = relationship(Plugin, backref='schedule')
+    last_check_run = Column(DateTime, default=datetime.fromtimestamp(0))
+    last_status = Column(String(1000))
+    last_exitcode = Column(Integer)
+
+    def __unicode__(self):
+        return self.plugin.customname
+
+class History(Base):
+    __tablename__ = 'history'
+    id = Column(Integer, primary_key=True)
+    taskid = Column(String(36), unique=True)
+    desc = Column(String(100))
+    interval = Column(Integer)
+    host_id = Column(Integer(), ForeignKey(Host.id))
+    host = relationship(Host, backref='history')
+    plugin_id = Column(Integer(), ForeignKey(Plugin.id))
+    plugin = relationship(Plugin, backref='history')
     last_check_run = Column(DateTime, default=datetime.fromtimestamp(0))
     last_status = Column(String(1000))
     last_exitcode = Column(Integer)

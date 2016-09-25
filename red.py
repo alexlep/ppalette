@@ -6,7 +6,7 @@ from core.database import init_db, db_session
 from core.mq import MQ
 from core.models import Schedule as ScheduleModel
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.jobstores.base import ConflictingIdError
+from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 
 redConfig = './config/red_config.json'
 
@@ -34,7 +34,10 @@ class Scheduler(BackgroundScheduler):
             if msg.value:
                 self.addJobFromDB(msg.taskid)
             else:
-                self.remove_job(str(msg.taskid))
+                try:
+                    self.remove_job(msg.taskid)
+                except JobLookupError: # remove alredy removed job
+                    pass
         else:
             self.log.WARN("An error while decoding json through API interface")
 
@@ -52,17 +55,17 @@ class Scheduler(BackgroundScheduler):
         print "reloaded"
 
     def addJobFromDB(self, jobid):
-        task = ScheduleModel.query.filter_by(id=jobid).first()
+        task = ScheduleModel.query.filter_by(taskid=jobid).first()
         try:
             self.registerJob(task)
         except ConflictingIdError: # task already running, re-enabling, TODO: calculations with old task
             print "removing"
-            self.remove_job(str(jobid))
+            self.remove_job(jobid)
             print "adding"
             self.registerJob(task)
 
     def registerJob(self, task):
-        self.add_job(self.event, trigger = 'interval', id = str(task.id), seconds = task.interval,
+        self.add_job(self.event, trigger = 'interval', id = task.taskid, seconds = task.interval,
                                 args=[task])
 
 

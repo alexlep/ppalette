@@ -4,11 +4,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import OperationalError
 #from flask.ext.sqlalchemy import SQLAlchemy
 
-engine = create_engine('mysql://test:test@localhost/palette', convert_unicode=True) #, echo=True) #('sqlite:///sample_db.sqlite')
-#
+engine = create_engine('mysql://test:test@localhost/palette',
+                        convert_unicode=True,
+                        isolation_level="READ UNCOMMITTED") #, echo=True) #('sqlite:///sample_db.sqlite')
+
 db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=False,
+                                         autoflush=True,
                                          bind=engine))
+
 Base = declarative_base()
 Base.query = db_session.query_property()
 
