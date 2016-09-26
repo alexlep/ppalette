@@ -63,7 +63,7 @@ class Schedule(Base):
     def __unicode__(self):
         return self.plugin.customname
 
-@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
+#@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
 class History(Base):
     __tablename__ = 'history'
     id = Column(Integer, primary_key=True)

@@ -45,22 +45,26 @@ class Worker(mp.Process):
         return command
 
     def run(self):
-        while True:
-            print "working", os.getpid()
-            item = self.pQueue.get(True)
-            task = self.prepareTask(item)
-            if not task:
-                continue
-            executor = self.checkPluginAvailability(task)
-            if not executor:
-                continue
-            command = self.prepareCommand(task = task, executor = executor)
-            output = tools.executeProcess(command)
-            output['ip'] = task.ip
-            output['taskid'] = task.taskid
-            msg = json.dumps(output)
-            self.mqChannel.basic_publish(exchange='', routing_key=self.mqQueueName, body=msg)
-            print "finished", os.getpid()
+        try:
+            while True:
+                print "working", os.getpid()
+                item = self.pQueue.get(True)
+                task = self.prepareTask(item)
+                if not task:
+                    continue
+                executor = self.checkPluginAvailability(task)
+                if not executor:
+                    continue
+                command = self.prepareCommand(task = task, executor = executor)
+                output = tools.executeProcess(command)
+                output['ip'] = task.ip
+                output['taskid'] = task.taskid
+                msg = json.dumps(output)
+                self.mqChannel.basic_publish(exchange='', routing_key=self.mqQueueName, body=msg)
+                print "finished", os.getpid()
+        except KeyboardInterrupt:
+            print "KeyboardInterrupt for {0}".format(os.getpid())
+            return
 
 class Violet(object):
     def __init__(self, configFile):
@@ -86,7 +90,10 @@ class Violet(object):
 
     def startConsumer(self):
         print(' [*] Waiting for messages. To exit press CTRL+C')
-        self.inChannel.start_consuming()
+        try:
+            self.inChannel.start_consuming()
+        except:
+            print "ABORTING LISTENER"
 
     def startProcesses(self):
         for w in self.workers: # start each worker for executing plugins
@@ -98,15 +105,17 @@ class Violet(object):
         self.PQ.put(body)
 
     def destroy(self):
-        self.cProc.close()
+        self.inChannel.close()
+        for w in self.workers:
+            try:
+                w.mqChannel.close()
+                w.join()
+            except:
+                w.terminate()
 
 if __name__ =='__main__':
     VioletApp = Violet(violetConfig)
-    #try:
     VioletApp.startProcesses()
-    #    print "lalala"
-    #except:
-    #    print "OOOOOOOOOOOOPS"
     try:
         while True:
             time.sleep(1)
