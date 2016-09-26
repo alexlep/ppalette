@@ -91,4 +91,5 @@ if __name__ =='__main__':
     try:
         ss.startListener()
     except KeyboardInterrupt:
+        db_session.close()
         print "aborted once again..."
