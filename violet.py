@@ -21,7 +21,7 @@ class Worker(mp.Process):
     def prepareTask(self, item):
         try:
             data = json.loads(item)
-            task = tools.createClass(data)
+            task = tools.draftClass(data)
         except KeyError as ke:
             print "Cannot find value in decoded json: {0}".format(ke)
             self.logger.WARN("Error while decoding JSON. Problematic JSON is {0}".format(item))
@@ -29,8 +29,9 @@ class Worker(mp.Process):
         return task
 
     def checkPluginAvailability(self, task):
+        """ {"pluginid": "120c3829-0633-4f09-8e6a-ba0b0366520c", "hostid": "9b30c0bf-917d-4dcb-a9d1-a9c23cfabcab", "params": "-t 2", "script": "check_ssh", "interval": 10, "ipaddress": "127.0.0.1"} was sent to queue) """
         try:
-            executor = self.checks[task.plugin]
+            executor = self.checks[task.script]
         except:
             print 'Plugin {0} not found in configuration'.format(task.plugin)
             self.logger.WARN('Plugin {0} not found in configuration'.format(task.plugin))
@@ -39,9 +40,9 @@ class Worker(mp.Process):
 
     def prepareCommand(self, task, executor):
         if not task.params:
-            command = "{0} {1}".format(executor, task.ip)
+            command = "{0} {1}".format(executor, task.ipaddress)
         else:
-            command = "{0} {1} {2}".format(executor, task.params, task.ip)
+            command = "{0} {1} {2}".format(executor, task.params, task.ipaddress)
         return command
 
     def run(self):
@@ -57,9 +58,9 @@ class Worker(mp.Process):
                     continue
                 command = self.prepareCommand(task = task, executor = executor)
                 output = tools.executeProcess(command)
-                output['ip'] = task.ip
-                output['taskid'] = task.taskid
-                msg = json.dumps(output)
+                task.updateWithDict(output)
+                msg = json.dumps(task.__dict__)
+                print msg
                 self.mqChannel.basic_publish(exchange='', routing_key=self.mqQueueName, body=msg)
                 print "finished", os.getpid()
         except KeyboardInterrupt:
@@ -69,8 +70,8 @@ class Worker(mp.Process):
 class Violet(object):
     def __init__(self, configFile):
         self.config = tools.parseConfig(configFile)
-        self.logConfig = tools.createClass(self.config.log)
-        self.queueConfig = tools.createClass(self.config.queue)
+        self.logConfig = tools.draftClass(self.config.log)
+        self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
         self.MQ = MQ('m', self.queueConfig)
         self.inChannel = self.MQ.initInChannel() # from red
@@ -78,15 +79,32 @@ class Violet(object):
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
         self.inChannel.basic_consume(self.callback, queue=self.queueConfig.inqueue, no_ack=True)
-        self.cProc = mp.Process(target=self.startConsumer) # separate consumer process
+        self.cProc =  self.prepareWorkerForMQ()# separate consumer process
         self.PQ = mp.Queue()
-        self.workers = []
+        self.checks = self.preparePluginDict()
+        self.workers = self.prepareWorkersList()
+
+    def prepareWorkerForMQ(self):
+        return mp.Process(target=self.startConsumer)
+
+    def preparePluginDict(self):
+        tdict = {}
+        for path in self.config.plugin_paths.split(';'):
+            if path:
+                for pluginScript in os.listdir(path):
+                    tdict[pluginScript] = "{0}/{1}".format(path, pluginScript)
+        print tdict
+        return tdict
+
+    def prepareWorkersList(self):
+        tworkers = []
         for _ in range(self.config.process_count): # workers for executing checks
-            self.workers.append (Worker(pQueue = self.PQ,
-                                mqChannel = self.MQ.initInChannel(),
-                                mqQueueName = self.queueConfig.outqueue,
-                                logger = self.log,
-                                checks = self.config.checks))
+            tworkers.append(Worker(pQueue = self.PQ,
+                            mqChannel = self.MQ.initInChannel(),
+                            mqQueueName = self.queueConfig.outqueue,
+                            logger = self.log,
+                            checks = self.checks))
+        return tworkers
 
     def startConsumer(self):
         print(' [*] Waiting for messages. To exit press CTRL+C')

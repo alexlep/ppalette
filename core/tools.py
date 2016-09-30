@@ -21,7 +21,12 @@ def ping(host):
 """
 
 class draftClass:
-    pass
+    def __init__(self, dict):
+        self.__dict__.update(dict)
+
+    def updateWithDict(self, dict):
+        self.__dict__.update(dict)
+
 
 def parseConfig(config):
     try:
@@ -35,7 +40,7 @@ def parseConfig(config):
     except IOError as ie:
         print "Error in opening configuration file {0}: {1}".format(config, ie)
         sys.exit(1)
-    return createClass(config_data)
+    return draftClass(config_data)
 
 def executeProcess(command):
     feedback = {}
@@ -66,17 +71,28 @@ def prepareDict(converted,**kwargs):
     else:
         return data
 
+def prepareDictFromSQLA(item):
+    return dict(zip(item.keys(), item))
+
+
+def prepareCheckMessage(converted, task):
+    return json.dumps(task.__dict__)
+
 def fromJSON(data):
     try:
         msg = json.loads(data)
     except:
         msg = None
     return msg
-
+"""
 def createClass(dictdata):
     emptyClass = draftClass()
     emptyClass.__dict__.update(dictdata)
     return emptyClass
 
+def updateClass(classobject, dictdata):
+    classobject.__dict__.update(dictdata)
+    return emptyClass
+"""
 def getUniqueID():
     return str(uuid.uuid4())

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import pika, json
 from core.database import init_db, db_session
-from core.models import Schedule, History
+from core.models import Status, History
 from datetime import datetime
 from sqlalchemy import update, insert
 from core import tools

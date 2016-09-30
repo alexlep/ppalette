@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from core import tools
 from core.database import init_db, db_session
 from core.mq import MQ
-from core.models import Schedule as ScheduleModel
+from core.models import Plugin, Host, Suite
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 
@@ -15,8 +15,8 @@ class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
         super(BackgroundScheduler, self).__init__()
         self.config = tools.parseConfig(configFile)
-        self.logConfig = tools.createClass(self.config.log)
-        self.queueConfig = tools.createClass(self.config.queue)
+        self.logConfig = tools.draftClass(self.config.log)
+        self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
         self.MQ = MQ('m', self.queueConfig) # init MQ
         self.mqInChannel = self.MQ.initInChannel() # from blue
@@ -45,15 +45,32 @@ class Scheduler(BackgroundScheduler):
     def startListener(self):
         self.mqInChannel.start_consuming()
 
-    def getAllActiveTasksFromDB(self):
-        return ScheduleModel.query.filter_by(enabled=True).all()
-
     def fillSchedule(self):
         self.remove_all_jobs()
         tasks = self.getAllActiveTasksFromDB()
         for task in tasks:
-            self.registerJob(task)
+            taskdict = tools.prepareDictFromSQLA(task)
+            taskclass = tools.draftClass(taskdict)
+            self.registerJob(taskclass)
         print "reloaded"
+
+    def getAllActiveTasksFromDB(self):
+        return db_session.query(Plugin.pluginid, Plugin.script, Plugin.interval, Plugin.params, Host.hostid, Host.ipaddress).\
+                join((Suite, Plugin.suites)).\
+                join((Host, Suite.host))
+
+    def registerJob(self, task):
+        self.add_job(self.event, trigger = 'interval', id = task.hostid + task.pluginid,
+                        seconds = task.interval,
+                        args=[task])
+
+
+    def event(self, task):
+        message = tools.prepareCheckMessage(converted = True, task = task)
+        self.mqOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
+        print('{0} was sent to queue) ').format(message) #for {1} at (interval is {2}, task is {3})'.format(task.plugin.check,
+                                                    #                task.host.hostname,
+                                                    #            task.interval, task.taskid))
 
     def addJobFromDB(self, jobid):
         task = ScheduleModel.query.filter_by(taskid=jobid).first()
@@ -64,24 +81,6 @@ class Scheduler(BackgroundScheduler):
             self.remove_job(jobid)
             print "adding"
             self.registerJob(task)
-
-    def registerJob(self, task):
-        self.add_job(self.event, trigger = 'interval', id = task.taskid, seconds = task.interval,
-                                args=[task])
-
-
-    def event(self, task):
-        message = tools.prepareDict(converted = True,
-                                    plugin = task.plugin.check,
-                                    host = task.host.hostname,
-                                    ip = task.host.ipaddress,
-                                    type = "check",
-                                    params = task.plugin.params,
-                                    taskid = task.taskid)
-        self.mqOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
-        print('{0} was sent to queue for {1} at (interval is {2}, task is {3})'.format(task.plugin.check,
-                                                                    task.host.hostname,
-                                                                task.interval, task.taskid))
 
 if __name__ =='__main__':
     if not init_db(False):
