@@ -2,14 +2,12 @@
 import sys, os, pika, logging, json
 from flask import Flask, abort
 from datetime import datetime, timedelta
-from core import tools
-from core.database import init_db, db_session
-from core.mq import MQ
-from core.models import Plugin, Host, Suite
+import tools
+from database import init_db, db_session
+from mq import MQ
+from models import Plugin, Host, Suite
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
-
-redConfig = './config/red_config.json'
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
@@ -18,13 +16,13 @@ class Scheduler(BackgroundScheduler):
         self.logConfig = tools.draftClass(self.config.log)
         self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
-        self.MQ = MQ('m', self.queueConfig) # init MQ
-        self.mqInChannel = self.MQ.initInChannel() # from blue
+        self.MQ = MQ('s', self.queueConfig) # init MQ
+        #self.mqInChannel = self.MQ.initInChannel() # from blue
         self.mqOutChannel = self.MQ.initOutChannel() # to violet
-        if (not self.mqInChannel) or (not self.mqOutChannel):
+        if not self.mqOutChannel:
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
-        self.mqInChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
+        #self.mqInChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
         self.fillSchedule()
         self.start()
 
@@ -42,8 +40,8 @@ class Scheduler(BackgroundScheduler):
         else:
             self.log.WARN("An error while decoding json through API interface")
 
-    def startConsumer(self):
-        self.mqInChannel.start_consuming()
+    #def startConsumer(self):
+    #    self.mqInChannel.start_consuming()
 
     def fillSchedule(self):
         self.remove_all_jobs()
@@ -84,13 +82,13 @@ class Scheduler(BackgroundScheduler):
             print "adding"
             self.registerJob(task)
 
-if __name__ =='__main__':
-    if not init_db(False):
-        print "Service is unable to connect to DB. Check if DB service is running. Aborting."
-        sys.exit(1)
-    RedApp = Scheduler(redConfig)
-    try:
-        RedApp.startConsumer()
-    except KeyboardInterrupt:
-        db_session.close()
-        print "aborted once again..."
+#if __name__ =='__main__':
+#    if not init_db(False):
+#        print "Service is unable to connect to DB. Check if DB service is running. Aborting."
+#        sys.exit(1)
+#RedApp = Scheduler(redConfig)
+#    try:
+#        RedApp.startConsumer()
+#    except KeyboardInterrupt:
+#        db_session.close()
+#        print "aborted once again..."

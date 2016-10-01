@@ -36,14 +36,15 @@ class Grey(object):
         #Status.update().
         #try:
         updateQ = Status.__table__.update().where(and_(Status.plugin_id==msg.pluginid, Status.host_id==msg.hostid)).\
-                values(last_status=msg.output, last_exitcode = msg.exitcode, last_check_run = check_time)
+                values(last_status=msg.output, last_exitcode = msg.exitcode, last_check_run = check_time, interval = msg.interval)
         if not db_session.execute(updateQ).rowcount:
             insertQ = insert(Status).values(statusid = tools.getUniqueID(),
                                             plugin_id = msg.pluginid,
                                             host_id = msg.hostid,
                                             last_status=msg.output,
                                             last_exitcode = msg.exitcode,
-                                            last_check_run = check_time)
+                                            last_check_run = check_time,
+                                            interval = msg.interval)
             db_session.execute(insertQ)
 
         """Sched = Schedule.query.filter_by(taskid=msg.taskid).first()

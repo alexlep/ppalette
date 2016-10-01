@@ -4,7 +4,7 @@
     "port" : "",
     "user" : "",
     "pasword" : "",
-    "inqueue" : "bluequeue",
+    "inqueue" : "",
     "outqueue" : "redqueue"
   },
   "log": {
