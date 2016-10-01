@@ -2,7 +2,7 @@
 import sys
 from flask import Flask
 from flask_admin import Admin
-from core.models import Host, Subnet, Plugin, History, Suite #bcrypt, Schedule
+from core.models import Host, Subnet, Plugin, History, Suite, Status #bcrypt, Schedule
 from core.database import init_db, db_session
 from core.mq import MQ
 from core import tools
@@ -12,8 +12,8 @@ from sqlalchemy.sql.functions import now
 blueConfig = './config/blue_config.json'
 
 config = tools.parseConfig(blueConfig)
-confQueue = tools.createClass(config.queue)
-confLog = tools.createClass(config.log)
+confQueue = tools.draftClass(config.queue)
+confLog = tools.draftClass(config.log)
 isMQ = confQueue.isMQ
 
 
@@ -84,6 +84,9 @@ class DashBoardView(sqla.ModelView):
     column_display_pk = False
     can_export = True
     column_list = ('host', 'host.ipaddress', 'plugin', 'last_check_run', 'last_status', 'last_exitcode')
+    column_searchable_list = ('host.hostname',)
+    column_default_sort = ('host.hostname')
+    #column_sortable_list = ('host.hostname',)
 
 
 arg = ''.join(sys.argv[1:]) or True
@@ -104,8 +107,8 @@ app.config['DEBUG'] = True
 def shutdown_session(exception=None):
     db_session.remove()
 
-#admin = Admin (app, name='blue', template_mode='bootstrap3', url='/', index_view=DashBoardView(Schedule, db_session, url='/', endpoint='admin', name='Dashboard'))
-admin = Admin (app, name='blue', template_mode='bootstrap3') #, url='/', index_view=DashBoardView(Schedule, db_session, url='/', endpoint='admin', name='Dashboard'))
+admin = Admin (app, name='blue', template_mode='bootstrap3', url='/', index_view=DashBoardView(Status, db_session, url='/', endpoint='admin', name='Dashboard'))
+#admin = Admin (app, name='blue', template_mode='bootstrap3') #, url='/', index_view=DashBoardView(Schedule, db_session, url='/', endpoint='admin', name='Dashboard'))
 admin.add_view(PluginView(Plugin, db_session, name="Plugins", category="Checks"))
 admin.add_view(SuiteView(Suite, db_session, name="Suites", category="Checks"))
 

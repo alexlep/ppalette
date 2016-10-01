@@ -55,12 +55,14 @@ class Scheduler(BackgroundScheduler):
         print "reloaded"
 
     def getAllActiveTasksFromDB(self):
-        return db_session.query(Plugin.pluginid, Plugin.script, Plugin.interval, Plugin.params, Host.hostid, Host.ipaddress).\
+        return db_session.query(Plugin.id.label('pluginid'),
+                                Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params,
+                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname).\
                 join((Suite, Plugin.suites)).\
                 join((Host, Suite.host))
 
     def registerJob(self, task):
-        self.add_job(self.event, trigger = 'interval', id = task.hostid + task.pluginid,
+        self.add_job(self.event, trigger = 'interval', id = task.hostUUID + task.pluginUUID,
                         seconds = task.interval,
                         args=[task])
 
@@ -86,9 +88,9 @@ if __name__ =='__main__':
     if not init_db(False):
         print "Service is unable to connect to DB. Check if DB service is running. Aborting."
         sys.exit(1)
-    ss = Scheduler(redConfig)
+    RedApp = Scheduler(redConfig)
     try:
-        ss.startListener()
+        RedApp.startListener()
     except KeyboardInterrupt:
         db_session.close()
         print "aborted once again..."

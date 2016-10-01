@@ -24,17 +24,16 @@ class Worker(mp.Process):
             task = tools.draftClass(data)
         except KeyError as ke:
             print "Cannot find value in decoded json: {0}".format(ke)
-            self.logger.WARN("Error while decoding JSON. Problematic JSON is {0}".format(item))
+            self.logger.warning("Error while decoding JSON. Problematic JSON is {0}".format(item))
             task = None
         return task
 
     def checkPluginAvailability(self, task):
-        """ {"pluginid": "120c3829-0633-4f09-8e6a-ba0b0366520c", "hostid": "9b30c0bf-917d-4dcb-a9d1-a9c23cfabcab", "params": "-t 2", "script": "check_ssh", "interval": 10, "ipaddress": "127.0.0.1"} was sent to queue) """
         try:
             executor = self.checks[task.script]
         except:
             print 'Plugin {0} not found in configuration'.format(task.plugin)
-            self.logger.WARN('Plugin {0} not found in configuration'.format(task.plugin))
+            self.logger.warning('Plugin {0} not found in configuration'.format(task.plugin))
             executor = None
         return executor
 
@@ -48,7 +47,6 @@ class Worker(mp.Process):
     def run(self):
         try:
             while True:
-                print "working", os.getpid()
                 item = self.pQueue.get(True)
                 task = self.prepareTask(item)
                 if not task:
@@ -62,7 +60,7 @@ class Worker(mp.Process):
                 msg = json.dumps(task.__dict__)
                 print msg
                 self.mqChannel.basic_publish(exchange='', routing_key=self.mqQueueName, body=msg)
-                print "finished", os.getpid()
+                self.logger.info('Worker {0} successfully executed task {1} for host {2} (ip:{3})'.format(self.pid, task.script, task.hostname, task.ipaddress))
         except KeyboardInterrupt:
             print "KeyboardInterrupt for {0}".format(os.getpid())
             return
@@ -91,9 +89,16 @@ class Violet(object):
         tdict = {}
         for path in self.config.plugin_paths.split(';'):
             if path:
-                for pluginScript in os.listdir(path):
-                    tdict[pluginScript] = "{0}/{1}".format(path, pluginScript)
-        print tdict
+                try:
+                    scripts = os.listdir(path)
+                except OSError as (errno, strerror):
+                    self.log.warning("Unable to access directory {0} to get plugins. Reason: {1}.".format(path, strerror))
+                    continue
+                if not len(scripts):
+                    self.log.warning("No plugins found in directory {0} directory is empty. Skipping it.".format(path))
+                else:
+                    for script in scripts:
+                        tdict[script] = "{0}/{1}".format(path, script)
         return tdict
 
     def prepareWorkersList(self):
@@ -111,7 +116,7 @@ class Violet(object):
         try:
             self.inChannel.start_consuming()
         except:
-            print "ABORTING LISTENER"
+            print "ABORTING VIOLET LISTENER"
 
     def startProcesses(self):
         for w in self.workers: # start each worker for executing plugins

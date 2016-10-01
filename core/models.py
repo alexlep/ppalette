@@ -37,7 +37,7 @@ class Suite(Base):
 class Plugin(Base):
     __tablename__ = 'plugin'
     id = Column(Integer, primary_key=True)
-    pluginid = Column(String(36), unique=True)
+    pluginUUID = Column(String(36), unique=True)
     script = Column(String(100))
     customname = Column(String(100))
     description = Column(String(100))
@@ -55,7 +55,7 @@ class Plugin(Base):
 class Host(Base):
     __tablename__ = 'host'
     id = Column(Integer, primary_key=True)
-    hostid = Column(String(36), unique=True)
+    hostUUID = Column(String(36), unique=True)
     hostname = Column(String(100))
     ipaddress = Column(String(100))
     login = Column(String(80), unique=True)

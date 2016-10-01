@@ -61,6 +61,7 @@ def initLogging(logconfig):
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(getattr(logging, logconfig.log_level))
+    return logger
 
 def prepareDict(converted,**kwargs):
     data = {}
@@ -84,15 +85,6 @@ def fromJSON(data):
     except:
         msg = None
     return msg
-"""
-def createClass(dictdata):
-    emptyClass = draftClass()
-    emptyClass.__dict__.update(dictdata)
-    return emptyClass
 
-def updateClass(classobject, dictdata):
-    classobject.__dict__.update(dictdata)
-    return emptyClass
-"""
 def getUniqueID():
     return str(uuid.uuid4())

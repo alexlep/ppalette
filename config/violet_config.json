@@ -12,5 +12,5 @@
     "log_file" : "logs/violet.log",
     "log_level" : "INFO"
   },
-  "plugin_paths" : "/usr/lib/nagios/plugins/;"
+  "plugin_paths" : "/usr/lib/nagios/plugins/;/root"
 }

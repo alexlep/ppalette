@@ -59,34 +59,14 @@
                     {% set column = 0 %}
                     {% for c, name in list_columns[:-1] %}
                     <th class="column-header">
-                        {% if admin_view.is_sortable(c) %}
-                            {% if sort_column == column %}
-                                <a href="{{ sort_url(column, True) }}" title="{{ _gettext('Sort by %(name)s', name=name) }}">
-                                    {{ name }}
-                                    {% if sort_desc %}
-                                        <span class="glyphicon glyphicon-chevron-up"></span>
-                                    {% else %}
-                                        <span class="glyphicon glyphicon-chevron-down"></span>
-                                    {% endif %}
-                                </a>
-                            {% else %}
-                                <a href="{{ sort_url(column) }}" title="{{ _gettext('Sort by %(name)s', name=name) }}">{{ name }}</a>
-                            {% endif %}
-                        {% else %}
                             {{ name }}
-                        {% endif %}
-                        {% if admin_view.column_descriptions.get(c) %}
-                            <a class="glyphicon glyphicon-question-sign"
-                               title="{{ admin_view.column_descriptions[c] }}"
-                               href="javascript:void(0)" data-role="tooltip"
-                            ></a>
-                        {% endif %}
                     </th>
                     {% set column = column + 1 %}
                     {% endfor %}
                 {% endblock %}
             </tr>
         </thead>
+        {% set prev_row = data[-1] %}
         {% for row in data %}
         {% if get_value(row, 'last_exitcode') == 0 %}
           <tr class="success">
@@ -97,10 +77,19 @@
         {% endif %}
             {% block list_row scoped %}
                 {% for c, name in list_columns[:-1] %}
+                  {% if c == 'host' %}
+                    {% if get_value(row, c) == get_value(prev_row, c) %}
+                      <td></td>
+                    {% else %}
+                      <td>{{ get_value(row, c) }}</td>
+                    {% endif %}
+                  {% else %}
                     <td>{{ get_value(row, c) }}</td>
+                  {% endif %}
                 {% endfor %}
             {% endblock %}
         </tr>
+        {% set prev_row = row %}
         {% else %}
         <tr>
             <td colspan="999">

@@ -1,0 +1,14 @@
+{
+  "queue" : {
+    "host" : "localhost",
+    "port" : "",
+    "user" : "",
+    "pasword" : "",
+    "inqueue" : "violetqueue",
+    "outqueue" : ""
+  },
+  "log": {
+    "log_file" : "logs/grey.log",
+    "log_level" : "INFO"
+    }
+}
