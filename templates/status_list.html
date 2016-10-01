@@ -7,6 +7,12 @@
 {% block head %}
     {{ super() }}
     {{ lib.form_css() }}
+    <style media="screen" type="text/css">
+
+    .borderless td, .borderless th, .borderless tr {
+    border: none;
+    }
+    </style>
 {% endblock %}
 
 {% block body %}
@@ -47,7 +53,8 @@
     {% endif %}
 
     {% block model_list_table %}
-    <table class="table table-bordered table-hover model-list">
+
+    <table class="table table-hover model-list borderless">
         <thead>
             <tr>
                 {% block list_header scoped %}
@@ -66,30 +73,30 @@
                 {% endblock %}
             </tr>
         </thead>
-        {% set prev_row = data[-1] %}
+        {% set prev_host = get_value(data[-1], 'host') %}
         {% for row in data %}
         {% if get_value(row, 'last_exitcode') == 0 %}
-          <tr class="success">
+          {% set status = 'success' %}
         {% elif get_value(row, 'last_exitcode') == 1 %}
-          <tr class="warning">
+          {% set status = 'warning' %}
         {% elif get_value(row, 'last_exitcode') == 2 %}
-          <tr class="danger">
+          {% set status = 'danger' %}
         {% endif %}
             {% block list_row scoped %}
                 {% for c, name in list_columns[:-1] %}
-                  {% if c == 'host' %}
-                    {% if get_value(row, c) == get_value(prev_row, c) %}
+                  {% if (c == 'host') or (c =='host.ipaddress') %}
+                    {% if get_value(row, 'host') == prev_host %}
                       <td></td>
                     {% else %}
-                      <td>{{ get_value(row, c) }}</td>
+                      <td class='info'>{{ get_value(row, c) }}</td>
                     {% endif %}
                   {% else %}
-                    <td>{{ get_value(row, c) }}</td>
+                    <td class="{{ status }}">{{ get_value(row, c) }}</td>
                   {% endif %}
                 {% endfor %}
             {% endblock %}
         </tr>
-        {% set prev_row = row %}
+        {% set prev_host = get_value(row, 'host') %}
         {% else %}
         <tr>
             <td colspan="999">

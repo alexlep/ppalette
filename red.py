@@ -42,7 +42,7 @@ class Scheduler(BackgroundScheduler):
         else:
             self.log.WARN("An error while decoding json through API interface")
 
-    def startListener(self):
+    def startConsumer(self):
         self.mqInChannel.start_consuming()
 
     def fillSchedule(self):
@@ -90,7 +90,7 @@ if __name__ =='__main__':
         sys.exit(1)
     RedApp = Scheduler(redConfig)
     try:
-        RedApp.startListener()
+        RedApp.startConsumer()
     except KeyboardInterrupt:
         db_session.close()
         print "aborted once again..."
