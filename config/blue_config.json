@@ -2,6 +2,6 @@
   "webif_enabled" : true,
   "log": {
     "log_file" : "logs/blue.log",
-    "log_level" : "INFO"
+    "log_level" : "DEBUG"
     }
 }

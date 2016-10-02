@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
-from flask import Flask
+from flask import Flask, abort
 from core.tools import parseConfig, draftClass, initLogging
 from core.scheduler import Scheduler
 from flask_admin import Admin
@@ -67,6 +67,7 @@ class PluginView(sqla.ModelView):
         return model
 
 class DashBoardView(sqla.ModelView):
+    page_size = 50
     list_template = 'status_list.html'
     can_create = False
     can_delete = False
@@ -79,12 +80,10 @@ class DashBoardView(sqla.ModelView):
     #column_sortable_list = ('host.hostname',)
 
 webif = Admin (name='blue', template_mode='bootstrap3', url='/', index_view=DashBoardView(Status, db_session, url='/', endpoint='admin', name='Dashboard'))
-webif.add_view(PluginView(Plugin, db_session, name="Plugins", category="Checks"))
-webif.add_view(SuiteView(Suite, db_session, name="Suites", category="Checks"))
-webif.add_view(HostView(Host, db_session, name="Hosts", category="Targets"))
-webif.add_view(sqla.ModelView(Subnet, db_session, name="Subnet", category="Targets"))
-
-
+webif.add_view(PluginView(Plugin, db_session, name="Plugins")) #, category="Checks"))
+webif.add_view(SuiteView(Suite, db_session, name="Suites")) #, category="Checks"))
+webif.add_view(HostView(Host, db_session, name="Hosts")) #, category="Targets"))
+webif.add_view(sqla.ModelView(Subnet, db_session, name="Subnet")) #, category="Targets"))
 
 
 BlueApp = Flask (__name__)
@@ -97,6 +96,14 @@ def shutdown_session(exception=None):
 
 if blueConfig.webif_enabled:
     webif.init_app(BlueApp)
+
+@BlueApp.route('/api/job/discovery/<subnetid>', methods=['GET'])
+def discoveryInitiator(subnetid):
+    #try:
+    RedApp.sendDiscoveryRequest(int(subnetid))
+    #except:
+    #    abort(500)
+    return 'Hello, World!'
 
 """
 @blueapp.route('/api/job/add/<id_>', methods=['GET','POST'])

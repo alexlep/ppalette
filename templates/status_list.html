@@ -73,7 +73,7 @@
                 {% endblock %}
             </tr>
         </thead>
-        {% set prev_host = get_value(data[-1], 'host') %}
+        {% if data %} {% set prev_host = get_value(data[-1], 'host') %} {% endif %}
         {% for row in data %}
         {% if get_value(row, 'last_exitcode') == 0 %}
           {% set status = 'success' %}

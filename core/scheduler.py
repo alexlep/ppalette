@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import sys, os, pika, logging, json
-from flask import Flask, abort
 from datetime import datetime, timedelta
 import tools
 from database import init_db, db_session
 from mq import MQ
-from models import Plugin, Host, Suite
+from models import Plugin, Host, Suite, Subnet
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
+from netaddr import IPSet
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
@@ -18,8 +18,9 @@ class Scheduler(BackgroundScheduler):
         self.log = tools.initLogging(self.logConfig) # init logging
         self.MQ = MQ('s', self.queueConfig) # init MQ
         #self.mqInChannel = self.MQ.initInChannel() # from blue
-        self.mqOutChannel = self.MQ.initOutChannel() # to violet
-        if not self.mqOutChannel:
+        self.mqCheckOutChannel = self.MQ.initOutChannel() # to violet
+        self.mqCommonJobsOutChannel = self.MQ.initOutChannel() # to violet
+        if (not self.mqCheckOutChannel) or (not self.mqCommonJobsOutChannel):
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
         #self.mqInChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
@@ -45,11 +46,11 @@ class Scheduler(BackgroundScheduler):
 
     def fillSchedule(self):
         self.remove_all_jobs()
-        tasks = self.getAllActiveTasksFromDB()
-        for task in tasks:
-            taskdict = tools.prepareDictFromSQLA(task)
-            taskclass = tools.draftClass(taskdict)
-            self.registerJob(taskclass)
+        jobs = self.getAllActiveTasksFromDB()
+        for job in jobs:
+            jobdDict = tools.prepareDictFromSQLA(job)
+            jobClass = tools.draftClass(jobdDict)
+            self.registerJob(jobClass)
         print "reloaded"
 
     def getAllActiveTasksFromDB(self):
@@ -59,18 +60,10 @@ class Scheduler(BackgroundScheduler):
                 join((Suite, Plugin.suites)).\
                 join((Host, Suite.host))
 
-    def registerJob(self, task):
-        self.add_job(self.event, trigger = 'interval', id = task.hostUUID + task.pluginUUID,
-                        seconds = task.interval,
-                        args=[task])
-
-
-    def event(self, task):
-        message = tools.prepareCheckMessage(converted = True, task = task)
-        self.mqOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
-        print('{0} was sent to queue) ').format(message) #for {1} at (interval is {2}, task is {3})'.format(task.plugin.check,
-                                                    #                task.host.hostname,
-                                                    #            task.interval, task.taskid))
+    def registerJob(self, job):
+        self.add_job(self.sendCheckToMQ, trigger = 'interval', id = job.hostUUID + job.pluginUUID,
+                        seconds = job.interval,
+                        args=[job])
 
     def addJobFromDB(self, jobid):
         task = ScheduleModel.query.filter_by(taskid=jobid).first()
@@ -82,6 +75,42 @@ class Scheduler(BackgroundScheduler):
             print "adding"
             self.registerJob(task)
 
+    ###--------------------------
+    def sendCheckToMQ(self, job):
+        message = self.prepareCheckJobMessage(job)
+        self.mqCheckOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
+        print('{0} was sent to queue) ').format(message)
+        return
+
+    def prepareCheckJobMessage(self, job):
+        job.type = 'check'
+        return json.dumps(job.__dict__)
+    ###--------------------------
+    def sendCommonJobToMQ(self, job):
+        message = self.prepareCommonJobMessage(job)
+        self.mqCommonJobsOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
+        print('{0} was sent to queue) ').format(message)
+        return
+
+    def prepareCommonJobMessage(self, job):
+        job.type = 'task'
+        return json.dumps(job.__dict__)
+
+    def sendDiscoveryRequest(self, subnetid):
+        subnet = Subnet.query.filter_by(id=subnetid).first()
+        try:
+            ipaddresses = list(IPSet(['{0}/{1}'.format(subnet.subnet, subnet.netmask)]))
+        except AttributeError:
+            self.log.warning("Cannot find subnet with if {0}. DIscovery failed.".format(subnetid))
+            return None
+        for ipaddress in ipaddresses:
+            discoveryJob = tools.draftClass({})
+            discoveryJob.ipaddress = str(ipaddress)
+            discoveryJob.subnet_id = subnet.id
+            discoveryJob.suite_id = subnet.suite_id
+            discoveryJob.action = 'discovery'
+            self.sendCommonJobToMQ(discoveryJob)
+        return
 #if __name__ =='__main__':
 #    if not init_db(False):
 #        print "Service is unable to connect to DB. Check if DB service is running. Aborting."

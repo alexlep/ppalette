@@ -18,15 +18,15 @@ class Worker(mp.Process):
         self.mqChannel = mqChannel
         self.mqQueueName = mqQueueName
 
-    def prepareTask(self, item):
+    def decodeJob(self, item):
         try:
             data = json.loads(item)
-            task = tools.draftClass(data)
+            job = tools.draftClass(data)
         except KeyError as ke:
             print "Cannot find value in decoded json: {0}".format(ke)
             self.logger.warning("Error while decoding JSON. Problematic JSON is {0}".format(item))
-            task = None
-        return task
+            job = None
+        return job
 
     def checkPluginAvailability(self, task):
         try:
@@ -47,23 +47,42 @@ class Worker(mp.Process):
     def run(self):
         try:
             while True:
-                item = self.pQueue.get(True)
-                task = self.prepareTask(item)
-                if not task:
-                    continue
-                executor = self.checkPluginAvailability(task)
-                if not executor:
-                    continue
-                command = self.prepareCommand(task = task, executor = executor)
-                output = tools.executeProcess(command)
-                task.updateWithDict(output)
-                msg = json.dumps(task.__dict__)
+                jobMessage = self.pQueue.get(True)
+                job = self.decodeJob(jobMessage)
+                if job.type == 'check':
+                    result = self.executeCheck(job)
+                elif 'task':
+                    result = self.executeCommonTask(job)
+                msg = json.dumps(result.__dict__)
                 print msg
                 self.mqChannel.basic_publish(exchange='', routing_key=self.mqQueueName, body=msg)
-                self.logger.info('Worker {0} successfully executed task {1} for host {2} (ip:{3})'.format(self.pid, task.script, task.hostname, task.ipaddress))
+                if job.type == 'check':
+                    self.logger.info('Worker {0} successfully executed {1} for host {2} (ip:{3})'.format(self.pid, result.script, result.hostname, result.ipaddress))
+                elif 'task':
+                    self.logger.info('Worker {0} successfully executed {1} for ip:{2})'.format(self.pid, result.action, result.ipaddress))
         except KeyboardInterrupt:
             print "KeyboardInterrupt for {0}".format(os.getpid())
             return
+
+    def executeCheck(self, check):
+        executor = self.checkPluginAvailability(check)
+        if not executor:
+            return
+        command = self.prepareCommand(task = check, executor = executor)
+        output = tools.executeProcess(command)
+        check.updateWithDict(output)
+        return check
+
+    def executeCommonTask(self, task):
+        if task.action == 'discovery':
+            command = self.prepareDiscoveryCommand(task.ipaddress)
+            output = tools.executeProcess(command)
+            task.hostname = tools.resolveIP(task.ipaddress)
+            task.updateWithDict(output)
+        return task
+
+    def prepareDiscoveryCommand(self, ip):
+        return "ping -c1 -W1 {0}".format(ip)
 
 class Violet(object):
     def __init__(self, configFile):

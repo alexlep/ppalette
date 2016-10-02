@@ -39,7 +39,7 @@ class Plugin(Base):
     id = Column(Integer, primary_key=True)
     pluginUUID = Column(String(36), unique=True)
     script = Column(String(100))
-    customname = Column(String(100))
+    customname = Column(String(100), unique=True)
     description = Column(String(100))
     params = Column(String(200))
     interval = Column(Integer, default=10)
@@ -138,4 +138,4 @@ class Subnet(Base):
     suite = relationship("Suite")
 
     def __unicode__(self):
-        return self.subnet
+        return self.name

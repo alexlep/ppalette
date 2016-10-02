@@ -6,6 +6,7 @@ import logging
 import json
 import uuid
 from datetime import datetime
+import socket
 
 """
 def ping(host):
@@ -75,10 +76,6 @@ def prepareDict(converted,**kwargs):
 def prepareDictFromSQLA(item):
     return dict(zip(item.keys(), item))
 
-
-def prepareCheckMessage(converted, task):
-    return json.dumps(task.__dict__)
-
 def fromJSON(data):
     try:
         msg = json.loads(data)
@@ -88,3 +85,10 @@ def fromJSON(data):
 
 def getUniqueID():
     return str(uuid.uuid4())
+
+def resolveIP(ipaddress):
+    try:
+        result = socket.gethostbyaddr(ipaddress)[0]
+    except:
+        result = ipaddress
+    return result
