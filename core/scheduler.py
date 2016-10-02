@@ -16,14 +16,12 @@ class Scheduler(BackgroundScheduler):
         self.logConfig = tools.draftClass(self.config.log)
         self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
-        self.MQ = MQ('s', self.queueConfig) # init MQ
-        #self.mqInChannel = self.MQ.initInChannel() # from blue
+        self.MQ = MQ(self.queueConfig) # init MQ
         self.mqCheckOutChannel = self.MQ.initOutChannel() # to violet
         self.mqCommonJobsOutChannel = self.MQ.initOutChannel() # to violet
         if (not self.mqCheckOutChannel) or (not self.mqCommonJobsOutChannel):
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
-        #self.mqInChannel.basic_consume(self.taskChange, queue=self.queueConfig.inqueue, no_ack=True)
         self.fillSchedule()
         self.start()
 
@@ -40,9 +38,6 @@ class Scheduler(BackgroundScheduler):
                     pass
         else:
             self.log.WARN("An error while decoding json through API interface")
-
-    #def startConsumer(self):
-    #    self.mqInChannel.start_consuming()
 
     def fillSchedule(self):
         self.remove_all_jobs()

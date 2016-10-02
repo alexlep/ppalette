@@ -18,12 +18,12 @@ class Grey(object):
         self.logConfig = tools.draftClass(self.config.log)
         self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
-        self.MQ = MQ('c', self.queueConfig)
-        self.inChannel = self.MQ.initInChannel() # from red
-        if (not self.inChannel):
-            print ("Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting.")
+        self.MQ = MQ(self.queueConfig)
+        self.inChannel = self.MQ.initInChannel(self.callback)
+        if not self.inChannel:
+            self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
+            print "Unable to connect to RabbitMQ. Please check config and RMQ service."
             sys.exit(1)
-        self.inChannel.basic_consume(self.callback, queue=self.queueConfig.inqueue, no_ack=True)
 
     def startConsumer(self):
         self.inChannel.start_consuming()

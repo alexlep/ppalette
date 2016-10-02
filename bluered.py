@@ -103,7 +103,7 @@ def discoveryInitiator(subnetid):
     RedApp.sendDiscoveryRequest(int(subnetid))
     #except:
     #    abort(500)
-    return 'Hello, World!'
+    return '200'
 
 """
 @blueapp.route('/api/job/add/<id_>', methods=['GET','POST'])

@@ -90,14 +90,14 @@ class Violet(object):
         self.logConfig = tools.draftClass(self.config.log)
         self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
-        self.MQ = MQ('m', self.queueConfig)
-        self.inChannel = self.MQ.initInChannel() # from red
-        if (not self.inChannel):
-            print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
+        self.MQ = MQ(self.queueConfig)
+        self.inChannel = self.MQ.initInChannel(self.callback)
+        if not self.inChannel:
+            self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
+            print "Unable to connect to RabbitMQ. Please check config and RMQ service."
             sys.exit(1)
-        self.inChannel.basic_consume(self.callback, queue=self.queueConfig.inqueue, no_ack=True)
-        self.cProc =  self.prepareWorkerForMQ()# separate consumer process
-        self.PQ = mp.Queue()
+        self.cProc = self.prepareWorkerForMQ()# separate consumer process
+        self.PQ = mp.Manager().Queue()
         self.checks = self.preparePluginDict()
         self.workers = self.prepareWorkersList()
 
@@ -105,7 +105,7 @@ class Violet(object):
         return mp.Process(target=self.startConsumer)
 
     def preparePluginDict(self):
-        tdict = {}
+        tPlugDict = {}
         for path in self.config.plugin_paths.split(';'):
             if path:
                 try:
@@ -117,14 +117,14 @@ class Violet(object):
                     self.log.warning("No plugins found in directory {0} directory is empty. Skipping it.".format(path))
                 else:
                     for script in scripts:
-                        tdict[script] = "{0}/{1}".format(path, script)
-        return tdict
+                        tPlugDict[script] = "{0}/{1}".format(path, script)
+        return tPlugDict
 
     def prepareWorkersList(self):
         tworkers = []
         for _ in range(self.config.process_count): # workers for executing checks
             tworkers.append(Worker(pQueue = self.PQ,
-                            mqChannel = self.MQ.initInChannel(),
+                            mqChannel = self.MQ.initOutChannel(),
                             mqQueueName = self.queueConfig.outqueue,
                             logger = self.log,
                             checks = self.checks))
@@ -163,5 +163,4 @@ if __name__ =='__main__':
             time.sleep(1)
     except KeyboardInterrupt:
         VioletApp.destroy()
-
-    print "aborted with your little filthy hands!"
+        print "aborted with your little filthy hands!"

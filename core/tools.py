@@ -63,7 +63,7 @@ def initLogging(logconfig):
     logger.addHandler(hdlr)
     logger.setLevel(getattr(logging, logconfig.log_level))
     return logger
-
+"""
 def prepareDict(converted,**kwargs):
     data = {}
     for name, value in kwargs.items():
@@ -71,7 +71,7 @@ def prepareDict(converted,**kwargs):
     if converted:
         return json.dumps(data)
     else:
-        return data
+        return data"""
 
 def prepareDictFromSQLA(item):
     return dict(zip(item.keys(), item))
