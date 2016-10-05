@@ -10,7 +10,7 @@ from database import Base
 from datetime import datetime
 
 #bcrypt = Bcrypt()
-suites = Table('suites',
+pluginsToSuites = Table('pluginsToSuites',
     Base.metadata,
     Column('suites_id', Integer, ForeignKey('suite.id')),
     Column('plugin_id', Integer, ForeignKey('plugin.id'))
@@ -25,14 +25,14 @@ suites = Table('suites',
 class Suite(Base):
     __tablename__ = 'suite'
     id = Column(Integer, primary_key=True)
-    suite = Column(String(100))
+    name = Column(String(100))
     description = Column(String(100))
-    #hosts = relationship('Host', secondary=hosts, backref=backref('suites', lazy='dynamic'))
     host = relationship("Host", back_populates="suite")
     subnet = relationship("Subnet", back_populates="suite")
+    plugins = relationship('Plugin', secondary=pluginsToSuites, backref=backref('suitos', lazy='dynamic'))
 
     def __unicode__(self):
-        return self.suite
+        return self.name
 
 class Plugin(Base):
     __tablename__ = 'plugin'
@@ -45,9 +45,7 @@ class Plugin(Base):
     interval = Column(Integer, default=10)
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
-    #suite_id = Column(Integer(), ForeignKey(suite.id))
-    #suites = relationship('suite', backref='Plugins')
-    suites = relationship('Suite', secondary=suites, backref=backref('plugins', lazy='dynamic'))
+    suites = relationship('Suite', secondary=pluginsToSuites, backref=backref('pluginos', lazy='dynamic'))
 
     def __unicode__(self):
         return self.customname

@@ -1,28 +1,39 @@
 # -*- coding: utf-8 -*-
-import sys, os, pika, logging, json
+import sys, os, pika, json
+import multiprocessing as mp
 from datetime import datetime, timedelta
-import tools
-from database import init_db, db_session
-from mq import MQ
-from models import Plugin, Host, Suite, Subnet
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from netaddr import IPSet
+from apscheduler.schedulers.background import BackgroundScheduler
+
+import tools
+from mq import MQ
+from models import Plugin, Host, Suite, Subnet
+from database import init_db, db_session
+from core.processing import Factory
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
         super(BackgroundScheduler, self).__init__()
         self.config = tools.parseConfig(configFile)
         self.logConfig = tools.draftClass(self.config.log)
+        self.log = tools.initLogging(self.logConfig)
         self.queueConfig = tools.draftClass(self.config.queue)
-        self.log = tools.initLogging(self.logConfig) # init logging
         self.MQ = MQ(self.queueConfig) # init MQ
         self.mqCheckOutChannel = self.MQ.initOutChannel() # to violet
         self.mqCommonJobsOutChannel = self.MQ.initOutChannel() # to violet
         if (not self.mqCheckOutChannel) or (not self.mqCommonJobsOutChannel):
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
+        self.factory = Factory(serviceType = 'red',
+                               workers_count = self.config.process_count,
+                               mq_out_queue = self.queueConfig.outqueue,
+                               mq_handler = self.MQ,
+                               logger = self.log)
         self.fillSchedule()
+
+    def startRedService(self):
+        self.factory.startWork()
         self.start()
 
     def taskChange(self, ch, method, properties, body):
@@ -55,10 +66,10 @@ class Scheduler(BackgroundScheduler):
                 join((Suite, Plugin.suites)).\
                 join((Host, Suite.host))
 
-    def registerJob(self, job):
-        self.add_job(self.sendCheckToMQ, trigger = 'interval', id = job.hostUUID + job.pluginUUID,
-                        seconds = job.interval,
-                        args=[job])
+
+    def registerJob(self, job_):
+        message = self.prepareCheckJobMessage(job_)
+        self.add_job(self.factory.processQueue.put, args=[message], trigger = 'interval', id = job_.hostUUID + job_.pluginUUID, seconds = job_.interval)
 
     def addJobFromDB(self, jobid):
         task = ScheduleModel.query.filter_by(taskid=jobid).first()
@@ -71,15 +82,17 @@ class Scheduler(BackgroundScheduler):
             self.registerJob(task)
 
     ###--------------------------
-    def sendCheckToMQ(self, job):
-        message = self.prepareCheckJobMessage(job)
+    """def sendCheckToMQ(self, job_):
+        message = self.prepareCheckJobMessage(job_)
+        self.factory.processQueue.put(body)
         self.mqCheckOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
         print('{0} was sent to queue) ').format(message)
-        return
+        return"""
 
     def prepareCheckJobMessage(self, job):
         job.type = 'check'
         return json.dumps(job.__dict__)
+
     ###--------------------------
     def sendCommonJobToMQ(self, job):
         message = self.prepareCommonJobMessage(job)

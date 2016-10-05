@@ -6,7 +6,39 @@ from datetime import datetime
 from sqlalchemy import update
 import time
 
-init_db(False)
+#init_db(False)
+
+
+from apscheduler.schedulers.background import BackgroundScheduler
+
+#import logging
+#from apscheduler.scheduler import Scheduler
+
+
+"""
+Demonstrates how to use the blocking scheduler to schedule a job that executes on 3 second
+intervals.
+"""
+
+from datetime import datetime
+import os
+
+from apscheduler.schedulers.blocking import BlockingScheduler
+
+
+def tick():
+    print('Tick! The time is: %s' % datetime.now())
+
+
+if __name__ == '__main__':
+    scheduler = BlockingScheduler()
+    scheduler.add_job(tick, 'interval', seconds=3)
+    print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
+
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        pass
 
 
 #connection = pika.BlockingConnection(pika.ConnectionParameters(
@@ -28,7 +60,7 @@ def callback(ch, method, properties, body):
 
 #print(' [*] Waiting for messages. To exit press CTRL+C')
 #channel.start_consuming()
-while True:
+"""while True:
     #tasks = Schedule.query.all()
     #db_session.expire(Schedule())
     #db_session.refresh(Schedule())
@@ -43,4 +75,4 @@ while True:
         print dict(zip(i.keys(), i))
     #print dir(hosts[0])
     print '---'
-    time.sleep(1)
+    time.sleep(1)"""

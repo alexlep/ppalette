@@ -5,7 +5,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import OperationalError
 #from flask.ext.sqlalchemy import SQLAlchemy
 
-engine = create_engine('mysql://test:test@localhost/palette?use_unicode=1&charset=utf8',
+url = 'mysql://test:test@localhost/palette?use_unicode=1&charset=utf8'
+engine = create_engine(url,
                         pool_recycle=3600,
                         isolation_level="READ UNCOMMITTED") #, echo=True) #('sqlite:///sample_db.sqlite')
 

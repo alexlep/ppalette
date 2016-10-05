@@ -10,11 +10,11 @@ class MQ(object):
         self.config = config
         self.Connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.config.host))
 
-    def initInChannel(self, func):
+    def initInChannel(self, fun):
         try:
             inChannel = self.Connection.channel()
             inChannel.queue_declare(queue=self.config.inqueue)
-            inChannel.basic_consume(func, queue=self.config.inqueue, no_ack=True)
+            inChannel.basic_consume(fun, queue=self.config.inqueue, no_ack=True)
         except pika.exceptions.ConnectionClosed:
             inChannel = None
         return inChannel
