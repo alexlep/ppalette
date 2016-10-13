@@ -3,7 +3,7 @@ import sys, os, pika, json
 import multiprocessing as mp
 from datetime import datetime, timedelta
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
-from netaddr import IPSet
+from ipaddress import IPv4Network
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.ext.serializer import loads, dumps
 
@@ -62,8 +62,8 @@ class Scheduler(BackgroundScheduler):
 
     def getAllActiveTasksFromDB(self):
         return db_session.query(Plugin.id.label('pluginid'),
-                                Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params,
-                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname).\
+                                Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params, Plugin.ssh_wrapper,
+                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname, Host.login).\
                 join((Suite, Plugin.suites)).\
                 join((Host, Suite.host)).\
                 filter(Host.maintenance == False)
@@ -101,7 +101,7 @@ class Scheduler(BackgroundScheduler):
     def sendDiscoveryRequest(self, subnetid):
         subnet = Subnet.query.filter_by(id=subnetid).first()
         try:
-            ipaddresses = list(IPSet(['{0}/{1}'.format(subnet.subnet, subnet.netmask)]))[1:-1]  #
+            ipaddresses = list(IPv4Network(u'{0}/{1}'.format(subnet.subnet, subnet.netmask)))
         except AttributeError:
             self.log.warning("Cannot find subnet with id {0}. Discovery failed.".format(subnetid))
             return None

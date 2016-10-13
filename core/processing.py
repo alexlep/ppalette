@@ -1,6 +1,7 @@
 import json
 import multiprocessing as mp
-from tools import draftClass, executeProcess, resolveIP
+from tools import draftClass, executeProcess, executeProcessViaSSH, resolveIP
+from sshexecutor import SSHConnection
 
 class Worker(mp.Process):
     """
@@ -35,10 +36,11 @@ class Worker(mp.Process):
         return executor
 
     def prepareCommand(self, task, executor):
+        ip = '' if task.ssh_wrapper else task.ipaddress
         if not task.params:
-            command = "{0} {1}".format(executor, task.ipaddress)
+            command = "{0} {1}".format(executor, ip)
         else:
-            command = "{0} {1} {2}".format(executor, task.params, task.ipaddress)
+            command = "{0} {1} {2}".format(executor, task.params, ip)
         return command
 
     def run(self):
@@ -80,16 +82,17 @@ class Worker(mp.Process):
         if not executor:
             return
         command = self.prepareCommand(task = check, executor = executor)
-        output = executeProcess(command)
-        check.updateWithDict(output)
-        return check
+        if check.ssh_wrapper:
+            output = executeProcessViaSSH(command, check)
+        else:
+            output = executeProcess(command, check)
+        return output
 
     def executeCommonTask(self, task):
         if task.action == 'discovery':
             command = self.prepareDiscoveryCommand(task.ipaddress)
-            output = executeProcess(command)
-            task.hostname = resolveIP(task.ipaddress)
-            task.updateWithDict(output)
+            output = executeProcess(command, task)
+            output.hostname = resolveIP(task.ipaddress)
         return task
 
     def prepareDiscoveryCommand(self, ip):

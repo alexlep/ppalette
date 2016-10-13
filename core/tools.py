@@ -7,19 +7,7 @@ import json
 import uuid
 from datetime import datetime
 import socket
-
-"""
-def ping(host):
-
-    Returns True if host responds to a ping request
-
-
-    # Ping parameters as function of OS
-    ping_str = "-n 1" if  platform.system().lower()=="windows" else "-c 1"
-
-    # Ping
-    return os.system("ping " + ping_str + " " + host) == 0
-"""
+from sshexecutor import SSHConnection
 
 class draftClass:
     def __init__(self, dict):
@@ -28,11 +16,17 @@ class draftClass:
     def updateWithDict(self, dict):
         self.__dict__.update(dict)
 
+def time_wrap(func):
+    def func_wrapper(*args, **kwargs):
+        data = func(*args, **kwargs)
+        data.time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+        return data
+    return func_wrapper
 
 def parseConfig(config):
     try:
         with open(config) as config_file:
-            config_data =  json.load(config_file)
+            config_data = json.load(config_file)
             config_file.close()
     except ValueError as ve:
         print "Error in configuration file {0}: {1}".format(config, ve)
@@ -43,17 +37,22 @@ def parseConfig(config):
         sys.exit(1)
     return draftClass(config_data)
 
-def executeProcess(command):
-    feedback = {}
+@time_wrap
+def executeProcess(command, job):
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out = process.communicate()[0].rstrip() # here subprocess is killed
     try:
-        feedback['output'], feedback['details'] = out.split("|")
+        job.output, job.details = out.split("|")
     except ValueError:
-        feedback['output'], feedback['details'] = out, None
-    feedback['exitcode'] = process.returncode
-    feedback['time'] = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
-    return feedback
+        job.output, job.details = out, None
+    job.exitcode = process.returncode
+    return job
+
+@time_wrap
+def executeProcessViaSSH(command, job):
+    conn = SSHConnection(ipaddress = job.ipaddress, user = job.login)
+    job.output, job.details, job.exitcode = conn.executeCommand(command) # here remote connection is killed
+    return job
 
 def initLogging(logconfig):
     logger = logging.getLogger('')

@@ -16,12 +16,6 @@ pluginsToSuites = Table('pluginsToSuites',
     Column('plugin_id', Integer, ForeignKey('plugin.id'))
 )
 
-"""hosts = Table('hosts',
-    Base.metadata,
-    Column('hosts_id', Integer, ForeignKey('host.id')),
-    Column('suites_id', Integer, ForeignKey('suite.id'))
-)"""
-
 class Suite(Base):
     __tablename__ = 'suite'
     id = Column(Integer, primary_key=True)
@@ -42,9 +36,10 @@ class Plugin(Base):
     customname = Column(String(100), unique=True)
     description = Column(String(100))
     params = Column(String(200))
-    interval = Column(Integer, default=10)
+    interval = Column(Integer, default=30)
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
+    ssh_wrapper = Column(Boolean(), default = False)
     suites = relationship('Suite', secondary=pluginsToSuites, backref=backref('pluginos', lazy='dynamic'))
 
     def __unicode__(self):
@@ -56,8 +51,8 @@ class Host(Base):
     hostUUID = Column(String(36), unique=True)
     hostname = Column(String(100))
     ipaddress = Column(String(100))
-    login = Column(String(80), unique=True)
-    maintenance = Column(Boolean(False), default = False)
+    login = Column(String(80), default='violet')
+    maintenance = Column(Boolean(), default = False)
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
     suite_id = Column(Integer, ForeignKey('suite.id'))
@@ -86,27 +81,6 @@ class Status(Base):
     def __unicode__(self):
         return self.plugin.customname
 
-"""
-class Schedule(Base):
-    __tablename__ = 'schedule'
-    id = Column(Integer, primary_key=True)
-    taskid = Column(String(36), unique=True)
-    desc = Column(String(100))
-    date_created = Column(DateTime, default=now())
-    date_modified = Column(DateTime, default=now())
-    enabled = Column(Boolean(True), default = True)
-    interval = Column(Integer, default=10)
-    #host_id = Column(Integer(), ForeignKey(Host.id))
-    #host = relationship(Host, backref='schedule')
-    #plugin_id = Column(Integer(), ForeignKey(Plugin.id))
-    #plugin = relationship(Plugin, backref='schedule')
-    last_check_run = Column(DateTime, default=datetime.fromtimestamp(0))
-    last_status = Column(String(1000))
-    last_exitcode = Column(Integer)
-
-    def __unicode__(self):
-        return self.plugin.customname
-"""
 #@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
 class History(Base):
     __tablename__ = 'history'
@@ -122,7 +96,7 @@ class History(Base):
     check_exicode = Column(Integer)
 
     def __unicode__(self):
-        return self.plugin.last_status
+        return self.check_status
 
 class Subnet(Base):
     __tablename__ = 'subnet'
@@ -132,7 +106,6 @@ class Subnet(Base):
     netmask = Column(String(100))
     description = Column(String(100))
     host = relationship("Host", back_populates="subnet")
-    #suite = relationship("Suite", back_populates="subnet")
     suite_id = Column(Integer, ForeignKey('suite.id'))
     suite = relationship("Suite")
 

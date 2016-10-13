@@ -29,11 +29,12 @@ class SuiteView(sqla.ModelView):
 
 class HostView(sqla.ModelView):
     column_list = ('hostname', 'ipaddress',  'maintenance', 'suite', 'subnet')
-    form_excluded_columns = ('hostid', 'login', 'date_created', 'date_modified', 'status', 'hostUUID')
+    form_excluded_columns = ('hostid', 'date_created', 'date_modified', 'status', 'stats', 'hostUUID', 'history')
+    column_labels = dict(suite='Suite Name', subnet='Subnet of the Host', login='Account for SSH')
 
     def on_model_change(self, form, model, is_created):
         if is_created:
-            model.hostid = tools.getUniqueID()
+            model.hostUUID = getUniqueID()
         else:
             model.date_modified = now()
         return model
@@ -44,10 +45,9 @@ class HostView(sqla.ModelView):
 
 class PluginView(sqla.ModelView):
     column_list = ('customname', 'interval', 'date_created', 'date_modified', 'id')
-    form_excluded_columns = ('pluginUUID', 'date_created','date_modified', 'suitos', 'status')
+    form_excluded_columns = ('pluginUUID', 'date_created','date_modified', 'suitos', 'status', 'history')
 
     def on_model_change(self, form, model, is_created):
-        print "ololo"
         if is_created:
             model.pluginUUID = getUniqueID()
         else:

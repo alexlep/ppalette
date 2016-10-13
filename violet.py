@@ -19,7 +19,7 @@ class Violet(object):
             self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."
             sys.exit(1)
-        self.cProc = self.prepareWorkerForMQ()# separate consumer process
+        self.cProc = self.prepareWorkerForMQ() # separate consumer process
         self.checks = self.preparePluginDict()
         self.factory = Factory(serviceType = 'violet',
                                workers_count = self.config.process_count,
