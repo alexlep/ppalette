@@ -10,7 +10,24 @@
     <style media="screen" type="text/css">
 
     .borderless td, .borderless th, .borderless tr {
-    border: none;
+      border: 0;
+      padding-top: 0;
+    }
+    .my-stat-table {
+      border: 0;
+      margin: 0;
+    }
+    .my-stat-table .success {
+      background-color: #dff0d8;
+    }
+    .my-stat-table .danger {
+      background-color: #f2dede;
+    }
+    .my-stat-table .warning {
+      background-color: #fcf8e3;
+    }
+    .font-bold {
+      font-weight: 600;
     }
     </style>
 {% endblock %}
@@ -54,49 +71,43 @@
 
     {% block model_list_table %}
 
-    <table class="table table-hover model-list borderless">
-        <thead>
-            <tr>
-                {% block list_header scoped %}
-                    {% if actions %}
-                    <th class="list-checkbox-column">
-                        <input type="checkbox" name="rowtoggle" class="action-rowtoggle" title="{{ _gettext('Select all records') }}" />
-                    </th>
-                    {% endif %}
-                    {% set column = 0 %}
-                    {% for c, name in list_columns[:-1] %}
-                    <th class="column-header">
-                            {{ name }}
-                    </th>
-                    {% set column = column + 1 %}
-                    {% endfor %}
-                {% endblock %}
-            </tr>
-        </thead>
-        {% if data %} {% set prev_host = get_value(data[-1], 'host') %} {% endif %}
+    <table class="table table-hover model-list table-condensed borderless">
         {% for row in data %}
-        {% if get_value(row, 'last_exitcode') == 0 %}
-          {% set status = 'success' %}
-        {% elif get_value(row, 'last_exitcode') == 1 %}
-          {% set status = 'warning' %}
-        {% elif get_value(row, 'last_exitcode') == 2 %}
-          {% set status = 'danger' %}
-        {% endif %}
-            {% block list_row scoped %}
-                {% for c, name in list_columns[:-1] %}
-                  {% if (c == 'host') or (c =='host.ipaddress') %}
-                    {% if get_value(row, 'host') == prev_host %}
-                      <td></td>
-                    {% else %}
-                      <td class='info'>{{ get_value(row, c) }}</td>
+          {% block list_row scoped %}
+          <td>
+            <table>
+              <tr >
+                <td class='font-bold'>{{ get_value(row, 'hostname') }}</td>
+              </tr>
+              <tr>
+                <td class='info col-xs-2'>IP: {{ get_value(row, 'ipaddress') }}</td>
+              </tr>
+              <tr>
+                <td class='info col-xs-2'>Suite: {{ get_value(row, 'suite') }}</td>
+              </tr>
+            </table>
+          </td>
+            <td>
+              <table class="my-stat-table">
+                {% for plug in row.stats %}
+                  <tr>
+                    {% if get_value(plug, 'last_exitcode') == 0 %}
+                      {% set status = 'success' %}
+                    {% elif get_value(plug, 'last_exitcode') == 1 %}
+                      {% set status = 'warning' %}
+                    {% elif get_value(plug, 'last_exitcode') == 2 %}
+                      {% set status = 'danger' %}
                     {% endif %}
-                  {% else %}
-                    <td class="{{ status }}">{{ get_value(row, c) }}</td>
-                  {% endif %}
+                    <td class='{{ status }} col-xs-2'>{{ plug.plugin }}</td>
+                    <td class='{{ status }} col-xs-1'>{{ plug.last_check_run.strftime('%H:%M:%S') }}</td>
+                    <td class='{{ status }}'>{{ plug.last_status }}</td>
+                  </tr>
                 {% endfor %}
-            {% endblock %}
+              </table>
+            </td>
+
+          {% endblock %}
         </tr>
-        {% set prev_host = get_value(row, 'host') %}
         {% else %}
         <tr>
             <td colspan="999">

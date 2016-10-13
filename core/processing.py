@@ -53,7 +53,11 @@ class Worker(mp.Process):
                 self.sendMessage(msg)
         except KeyboardInterrupt:
             print "KeyboardInterrupt for {0}".format(self.pid)
-            return
+        '''except EOFError as eofe:
+            print 'Smth is fucked up, caught EOFError in multiprocessing'
+            '''
+        return
+
 
     def performJob(self, jobMessage):
         job = self.decodeJob(jobMessage)

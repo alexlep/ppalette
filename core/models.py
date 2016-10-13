@@ -64,6 +64,7 @@ class Host(Base):
     suite = relationship("Suite")
     subnet_id = Column(Integer, ForeignKey('subnet.id'))
     subnet = relationship("Subnet")
+    stats = relationship("Status")
 
     def __unicode__(self):
         return self.hostname
@@ -112,10 +113,10 @@ class History(Base):
     id = Column(Integer, primary_key=True)
     desc = Column(String(100))
     interval = Column(Integer)
-    host_id = Column(Integer()) #, ForeignKey(Host.id))
-    #host = relationship(Host, backref='history')
-    plugin_id = Column(Integer()) # ForeignKey(Plugin.id))
-    #plugin = relationship(Plugin, backref='history')
+    host_id = Column(Integer(), ForeignKey(Host.id)) #, ForeignKey(Host.id))
+    host = relationship(Host, backref='history')
+    plugin_id = Column(Integer(), ForeignKey(Plugin.id)) # ForeignKey(Plugin.id))
+    plugin = relationship(Plugin, backref='history')
     check_run_time = Column(DateTime, default=datetime.fromtimestamp(0))
     check_status = Column(String(1000))
     check_exicode = Column(Integer)

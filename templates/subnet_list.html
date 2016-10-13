@@ -139,7 +139,7 @@
                     </td>
                 {% endfor %}
                     <td class="col-discovery">
-                        <button href="{{ url_for('discoveryInitiator', subnetid = 1) }}" type="button" class="btn btn-primary">Discovery</button>
+                        <button onclick="location.href='{{ url_for('discoveryInitiator', subnetid = 3, _external=True)}}';" type="button" class="btn btn-primary">Discovery</button>
                     </td>
             {% endblock %}
         </tr>

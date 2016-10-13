@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from netaddr import IPSet
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy.ext.serializer import loads, dumps
 
 import tools
 from mq import MQ
@@ -64,7 +65,8 @@ class Scheduler(BackgroundScheduler):
                                 Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params,
                                 Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname).\
                 join((Suite, Plugin.suites)).\
-                join((Host, Suite.host))
+                join((Host, Suite.host)).\
+                filter(Host.maintenance == False)
 
 
     def registerJob(self, job_):
@@ -80,36 +82,28 @@ class Scheduler(BackgroundScheduler):
             self.remove_job(jobid)
             print "adding"
             self.registerJob(task)
-
-    ###--------------------------
-    """def sendCheckToMQ(self, job_):
-        message = self.prepareCheckJobMessage(job_)
-        self.factory.processQueue.put(body)
-        self.mqCheckOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
-        print('{0} was sent to queue) ').format(message)
-        return"""
+        return
 
     def prepareCheckJobMessage(self, job):
         job.type = 'check'
         return json.dumps(job.__dict__)
-
-    ###--------------------------
-    def sendCommonJobToMQ(self, job):
-        message = self.prepareCommonJobMessage(job)
-        self.mqCommonJobsOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=message)
-        print('{0} was sent to queue) ').format(message)
-        return
-
-    def prepareCommonJobMessage(self, job):
+    ### --------------------------------------
+    def prepareTaskMessage(self, job):
         job.type = 'task'
         return json.dumps(job.__dict__)
+
+    def sendCommonJobToMQ(self, job):
+        message = self.prepareTaskMessage(job)
+        self.factory.processQueue.put(message)
+        print('{0} was sent to queue) ').format(message)
+        return
 
     def sendDiscoveryRequest(self, subnetid):
         subnet = Subnet.query.filter_by(id=subnetid).first()
         try:
-            ipaddresses = list(IPSet(['{0}/{1}'.format(subnet.subnet, subnet.netmask)]))
+            ipaddresses = list(IPSet(['{0}/{1}'.format(subnet.subnet, subnet.netmask)]))[1:-1]  #
         except AttributeError:
-            self.log.warning("Cannot find subnet with if {0}. DIscovery failed.".format(subnetid))
+            self.log.warning("Cannot find subnet with id {0}. Discovery failed.".format(subnetid))
             return None
         for ipaddress in ipaddresses:
             discoveryJob = tools.draftClass({})
