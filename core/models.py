@@ -64,6 +64,20 @@ class Host(Base):
     def __unicode__(self):
         return self.hostname
 
+    def maintenanceON(self):
+        if self.maintenance:
+            res = False
+        else:
+            self.maintenance = res = True
+        return res
+
+    def maintenanceOFF(self):
+        if self.maintenance:
+            self.maintenance = False
+            res = True
+        else:
+            res = False
+        return res
 
 class Status(Base):
     __tablename__ = 'status'
@@ -86,6 +100,7 @@ class History(Base):
     __tablename__ = 'history'
     id = Column(Integer, primary_key=True)
     desc = Column(String(100))
+    details = Column(String(200))
     interval = Column(Integer)
     host_id = Column(Integer(), ForeignKey(Host.id)) #, ForeignKey(Host.id))
     host = relationship(Host, backref='history')
@@ -93,10 +108,19 @@ class History(Base):
     plugin = relationship(Plugin, backref='history')
     check_run_time = Column(DateTime, default=datetime.fromtimestamp(0))
     check_status = Column(String(1000))
-    check_exicode = Column(Integer)
+    check_exitcode = Column(Integer)
 
     def __unicode__(self):
         return self.check_status
+
+    def __init__(self, msg):
+        self.host_id = msg.hostid
+        self.plugin_id = msg.pluginid
+        self.check_run_time = msg.time
+        self.check_status = msg.output
+        self.check_exitcode = msg.exitcode
+        self.interval = msg.interval
+        self.details = msg.details
 
 class Subnet(Base):
     __tablename__ = 'subnet'

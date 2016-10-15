@@ -26,13 +26,18 @@
     .my-stat-table .warning {
       background-color: #fcf8e3;
     }
+    .my-stat-table .internalerror {
+      background-color: #d9edf7;
+    }
     .font-bold {
       font-weight: 600;
     }
     </style>
+
 {% endblock %}
 
 {% block body %}
+
     {% block model_menu_bar %}
     <ul class="nav nav-tabs actions-nav">
         <li class="active">
@@ -71,19 +76,25 @@
 
     {% block model_list_table %}
 
+
     <table class="table table-hover model-list table-condensed borderless">
         {% for row in data %}
           {% block list_row scoped %}
           <td>
             <table>
-              <tr >
+              <tr>
                 <td class='font-bold'>{{ get_value(row, 'hostname') }}</td>
               </tr>
+              {% if 'icon-ok-circle' in get_value(row, 'maintenance') %}
               <tr>
-                <td class='info col-xs-2'>IP: {{ get_value(row, 'ipaddress') }}</td>
+                <td class='info col-xs-2 text-warning'><small>Maintenance {{get_value(row, 'maintenance')}}</small></td>
+              </tr>
+              {% endif %}
+              <tr>
+                <td class='info col-xs-2'><small>IP: {{ get_value(row, 'ipaddress') }}</small></td>
               </tr>
               <tr>
-                <td class='info col-xs-2'>Suite: {{ get_value(row, 'suite') }}</td>
+                <td class='info col-xs-2'><small>Suite: {{ get_value(row, 'suite') }}</small></td>
               </tr>
             </table>
           </td>
@@ -97,6 +108,8 @@
                       {% set status = 'warning' %}
                     {% elif get_value(plug, 'last_exitcode') == 2 %}
                       {% set status = 'danger' %}
+                    {% else %}
+                        {% set status = 'internalerror' %}
                     {% endif %}
                     <td class='{{ status }} col-xs-2'>{{ plug.plugin }}</td>
                     <td class='{{ status }} col-xs-1'>{{ plug.last_check_run.strftime('%H:%M:%S') }}</td>

@@ -50,10 +50,14 @@ class SSHConnection(object):
         else:
             stdin, stdout, stderr = self.client.exec_command(command)
             exitcode = stdout.channel.recv_exit_status()
-            output = stdout.read()
-            try:
-                res, details = output.split('|')
-            except:
+            if exitcode in range(0,3):
+                output = stdout.read()
+                try:
+                    res, details = output.split('|')
+                except:
+                    res, details = output, None
+            else:
+                output = stderr.read()
                 res, details = output, None
         self.killSSHSession()
         return [res, details, exitcode]

@@ -30,8 +30,8 @@ class Worker(mp.Process):
         try:
             executor = self.checks[task.script]
         except:
-            print 'Plugin {0} not found in configuration'.format(task.plugin)
-            self.logger.warning('Plugin {0} not found in configuration'.format(task.plugin))
+            print 'Plugin {0} not found in configuration'.format(task.script)
+            self.logger.warning('Plugin {0} not found in configuration'.format(task.script))
             executor = None
         return executor
 

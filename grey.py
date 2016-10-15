@@ -32,38 +32,33 @@ class Grey(object):
     def callback(self, ch, method, properties, body):
         msg = tools.draftClass(json.loads(body))
         if msg.type == 'check':
-            exec_time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")
-            self.updateStatusTable(msg, exec_time)
+            msg.time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")
+            self.updateStatusTable(msg)
             if self.collectHistory:
-                self.updateHistory(msg, exec_time)
+                self.updateHistory(msg)
         elif 'task':
             if msg.action == 'discovery':
                 self.log.info(self.tryAddingNewHost(msg))
 
-    def updateStatusTable(self, msg, exec_time):
+    def updateStatusTable(self, msg):
         updateQ = Status.__table__.update().where(and_(Status.plugin_id==msg.pluginid, Status.host_id==msg.hostid)).\
-            values(last_status=msg.output, last_exitcode = msg.exitcode, last_check_run = exec_time, interval = msg.interval)
+            values(last_status=msg.output, last_exitcode = msg.exitcode, last_check_run = msg.time, interval = msg.interval)
         if not db_session.execute(updateQ).rowcount:
             insertQ = insert(Status).values(statusid = tools.getUniqueID(),
                                         plugin_id = msg.pluginid,
                                         host_id = msg.hostid,
                                         last_status=msg.output,
                                         last_exitcode = msg.exitcode,
-                                        last_check_run = exec_time,
+                                        last_check_run = msg.time,
                                         interval = msg.interval)
             db_session.execute(insertQ)
         print msg.details
         db_session.commit()
         return
 
-    def updateHistory(self, msg, exec_time):
-        h = History()
-        h.host_id = msg.hostid
-        h.plugin_id = msg.pluginid
-        h.check_run_time = exec_time
-        h.check_status = msg.output
-        h.check_exicode = msg.exitcode
-        h.interval = msg.interval
+    def updateHistory(self, msg):
+        h = History(msg)
+        #h.insertValues(msg)
         db_session.add(h)
         db_session.commit()
         return
