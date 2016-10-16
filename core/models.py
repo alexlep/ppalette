@@ -79,6 +79,9 @@ class Host(Base):
             res = False
         return res
 
+    def listScheduleItems(self):
+        return map(lambda plugUUID: self.hostUUID + plugUUID, [plug.pluginUUID for plug in self.suite.plugins])
+
 class Status(Base):
     __tablename__ = 'status'
     id = Column(Integer, primary_key=True)
@@ -88,6 +91,7 @@ class Status(Base):
     host = relationship(Host, backref='status')
     plugin_id = Column(Integer(), ForeignKey(Plugin.id))
     plugin = relationship(Plugin, backref='status')
+    scheduled_check_time = Column(DateTime, default=datetime.fromtimestamp(0))
     last_check_run = Column(DateTime, default=datetime.fromtimestamp(0))
     last_status = Column(String(1000))
     last_exitcode = Column(Integer)

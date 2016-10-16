@@ -112,6 +112,7 @@
                         {% set status = 'internalerror' %}
                     {% endif %}
                     <td class='{{ status }} col-xs-2'>{{ plug.plugin }}</td>
+                    <td class='{{ status }} col-xs-1'>{{ plug.scheduled_check_time.strftime('%H:%M:%S') }}</td>
                     <td class='{{ status }} col-xs-1'>{{ plug.last_check_run.strftime('%H:%M:%S') }}</td>
                     <td class='{{ status }}'>{{ plug.last_status }}</td>
                   </tr>

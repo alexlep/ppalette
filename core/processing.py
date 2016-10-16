@@ -1,6 +1,6 @@
 import json
 import multiprocessing as mp
-from tools import draftClass, executeProcess, executeProcessViaSSH, resolveIP
+from tools import Message, executeProcess, executeProcessViaSSH, resolveIP
 from sshexecutor import SSHConnection
 
 class Worker(mp.Process):
@@ -19,7 +19,7 @@ class Worker(mp.Process):
     def decodeJob(self, item):
         try:
             data = json.loads(item)
-            job = draftClass(data)
+            job = Message(data)
         except KeyError as ke:
             print "Cannot find value in decoded json: {0}".format(ke)
             self.logger.warning("Error while decoding JSON. Problematic JSON is {0}".format(item))

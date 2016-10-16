@@ -9,12 +9,43 @@ from datetime import datetime
 import socket
 from sshexecutor import SSHConnection
 
-class draftClass:
-    def __init__(self, dict):
-        self.__dict__.update(dict)
+class Message(object):
+    type = ""
+    action = ""
+    suite_id = ""
+    scheduled_time = ""
+    script = ""
+    plugin_id = 0
+    pluginUUID = ""
+    params = ""
+    host_id = 0
+    hostUUID = ""
+    hostname = ""
+    ipaddress = ""
+    interval = 0
+    ssh_wrapper = False
+    login = ""
+    output = ""
+    exitcode = -1
+    time = ""
+    def __init__ (self, dictdata):
+        self.__dict__.update(dictdata)
+        scheduled_time = datetime.now()
 
-    def updateWithDict(self, dict):
-        self.__dict__.update(dict)
+    def getScheduleJobID(self):
+        return self.hostUUID + self.pluginUUID
+
+    def tojson(self, refreshTime = False):
+        if refreshTime:
+            self.scheduled_time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+        return json.dumps(self.__dict__)
+
+class draftClass:
+    def __init__(self, dictdata):
+        self.__dict__.update(dictdata)
+
+    def updateWithDict(self, dictdata):
+        self.__dict__.update(dictdata)
 
 def time_wrap(func):
     def func_wrapper(*args, **kwargs):

@@ -15,7 +15,10 @@ from core.processing import Factory
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
-        super(BackgroundScheduler, self).__init__()
+        super(BackgroundScheduler, self).__init__( {'apscheduler.executors.default': {
+        'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+        'max_workers': '20'
+        }})
         self.config = tools.parseConfig(configFile)
         self.logConfig = tools.draftClass(self.config.log)
         self.log = tools.initLogging(self.logConfig)
@@ -51,30 +54,59 @@ class Scheduler(BackgroundScheduler):
         else:
             self.log.WARN("An error while decoding json through API interface")
 
+    def prepareStartTime(self, delta):
+        startDelay = timedelta(0, delta)
+        initTime = datetime.now()
+        return initTime + startDelay
+
     def fillSchedule(self):
         self.remove_all_jobs()
-        jobs = self.getAllActiveTasksFromDB()
-        for job in jobs:
-            jobdDict = tools.prepareDictFromSQLA(job)
-            jobClass = tools.draftClass(jobdDict)
-            self.registerJob(jobClass)
-        print "reloaded"
+        schedule = self.getAllActiveTasksFromDB()
+        taskdict = {}
+        for job in schedule:
+            if job.interval not in taskdict.keys():
+                taskdict[job.interval] = []
+            taskdict[job.interval].append(job)
+            #self.registerJob(job)
+        startTime = self.prepareStartTime(10)
+        counter_ = 0
+        for key in taskdict.keys():
+            print key, len(taskdict[key]), len(taskdict[key]) % key, len(taskdict[key]) / key #35 192 17 5
+            counter = 0
+            for item in taskdict[key]:
+                if counter == key: counter = 0
+                self.registerJob(job = item, jobStartTime = startTime + timedelta(0, counter))
+                counter_ += 1
+                print counter_, item.hostname, item.script
+                counter += 1
 
     def getAllActiveTasksFromDB(self):
         return db_session.query(Plugin.id.label('pluginid'),
                                 Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params, Plugin.ssh_wrapper,
-                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname, Host.login).\
+                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname, Host.login, Host.maintenance).\
+                join((Suite, Plugin.suites)).\
+                join((Host, Suite.host))
+
+    def getSingleActiveTaskFromDB(self, hostUUID, pluginUUID):
+        return db_session.query(Plugin.id.label('pluginid'),
+                                Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params, Plugin.ssh_wrapper,
+                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname, Host.login, Host.maintenance).\
                 join((Suite, Plugin.suites)).\
                 join((Host, Suite.host)).\
-                filter(Host.maintenance == False)
+                filter(Host.hostUUID == hostUUID, Plugin.pluginUUID == pluginUUID).first()
 
-
-    def registerJob(self, job_):
-        message = self.prepareCheckJobMessage(job_)
-        self.add_job(self.factory.processQueue.put, args=[message], trigger = 'interval', id = job_.hostUUID + job_.pluginUUID, seconds = job_.interval)
+    def registerJob(self, job, jobStartTime):
+        jobDict = tools.prepareDictFromSQLA(job)
+        message = tools.Message(jobDict)
+        message.type = 'check'
+        jobid = message.getScheduleJobID()
+        self.add_job(self.sendCommonJobToMQ, args=[message], trigger = 'interval', id = jobid, seconds = message.interval,
+                     misfire_grace_time=10, next_run_time = jobStartTime)
+        if job.maintenance:
+            self.pause_job(jobid)
 
     def addJobFromDB(self, jobid):
-        task = ScheduleModel.query.filter_by(taskid=jobid).first()
+        task = Host.query.filter_by(taskid=jobid).first()
         try:
             self.registerJob(task)
         except ConflictingIdError: # task already running, re-enabling, TODO: calculations with old task
@@ -84,18 +116,19 @@ class Scheduler(BackgroundScheduler):
             self.registerJob(task)
         return
 
-    def prepareCheckJobMessage(self, job):
-        job.type = 'check'
-        return json.dumps(job.__dict__)
-    ### --------------------------------------
-    def prepareTaskMessage(self, job):
-        job.type = 'task'
-        return json.dumps(job.__dict__)
+    def resumeHostFromMaintenance(self, host):
+        for plugin in host.suite.plugins:
+            try:
+                self.resume_job("{0}{1}".format(host.hostUUID, plugin.pluginUUID))
+            except JobLookupError:
+                newjob = self.getSingleActiveTaskFromDB(host.hostUUID, plugin.pluginUUID)
+                self.registerJob(newjob)
 
-    def sendCommonJobToMQ(self, job):
-        message = self.prepareTaskMessage(job)
-        self.factory.processQueue.put(message)
-        print('{0} was sent to queue) ').format(message)
+    ### --------------------------------------
+
+    def sendCommonJobToMQ(self, jobMessage):
+        self.factory.processQueue.put(jobMessage.tojson(refreshTime = True))
+        #print('{0} was sent to queue) ').format(jobMessage)
         return
 
     def sendDiscoveryRequest(self, subnetid):
@@ -106,11 +139,12 @@ class Scheduler(BackgroundScheduler):
             self.log.warning("Cannot find subnet with id {0}. Discovery failed.".format(subnetid))
             return None
         for ipaddress in ipaddresses:
-            discoveryJob = tools.draftClass({})
+            discoveryJob = tools.Message({})
             discoveryJob.ipaddress = str(ipaddress)
             discoveryJob.subnet_id = subnet.id
             discoveryJob.suite_id = subnet.suite_id
             discoveryJob.action = 'discovery'
+            discoveryJob.type = 'task'
             self.sendCommonJobToMQ(discoveryJob)
         return
 #if __name__ =='__main__':
