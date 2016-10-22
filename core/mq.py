@@ -19,6 +19,15 @@ class MQ(object):
             inChannel = None
         return inChannel
 
+    def initCustomInChannel(self, fun):
+        try:
+            inChannel = self.Connection.channel()
+            inChannel.queue_declare(queue=self.config.inqueue)
+            inChannel.consume(fun, queue=self.config.inqueue, no_ack=True)
+        except pika.exceptions.ConnectionClosed:
+            inChannel = None
+        return inChannel
+
     def initOutChannel(self):
         try:
             outChannel = self.Connection.channel()

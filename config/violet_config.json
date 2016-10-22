@@ -1,5 +1,5 @@
 {
-  "process_count" : 96,
+  "process_count" : 32,
   "queue" : {
     "host" : "localhost",
     "port" : "",
@@ -9,7 +9,7 @@
     "outqueue" : "violetqueue"
   },
   "log": {
-    "log_file" : "logs/violet.log",
+    "log_file" : "/home/sp/soft/monit/soft/palette/logs/violet.log",
     "log_level" : "INFO"
   },
   "plugin_paths" : "/usr/lib/nagios/plugins/;/root"

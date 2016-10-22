@@ -3,19 +3,13 @@ import paramiko
 import os.path
 import sys
 
-host_key_file = os.path.expanduser('~/.ssh/known_hosts')
-rsa_key_file = os.path.expanduser('~/.ssh/id_rsa')
-ssh_connection_timeout = 4 # in seconds
-'''
-class HostUnit(object):
-    def __init__(self, host, port=22):
-        self.IP = host
-        self.user = remote_system_user
-        self.port = port
-'''
 class SSHConnection(object):
+    host_key_file = os.path.expanduser('~/.ssh/known_hosts')
+    rsa_key_file = os.path.expanduser('~/.ssh/id_rsa')
+    ssh_connection_timeout = 4 # in seconds
+
     def __init__(self, ipaddress, user, port = 22):
-        if not (os.path.isfile(host_key_file)) or not (os.path.isfile(host_key_file)):
+        if not (os.path.isfile(self.host_key_file)) or not (os.path.isfile(self.host_key_file)):
             print 'No host key file or no rsa key!'
             sys.exit(1)
         self.IP = ipaddress
@@ -28,10 +22,10 @@ class SSHConnection(object):
             return False
         try:
             self.client = paramiko.SSHClient()
-            self.client.load_system_host_keys(host_key_file)
+            self.client.load_system_host_keys(self.host_key_file)
             self.client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy())
-            self.rsa_key = paramiko.RSAKey.from_private_key_file(rsa_key_file)
-            self.client.connect(self.IP, self.port, self.user, pkey = self.rsa_key, timeout = ssh_connection_timeout)
+            self.rsa_key = paramiko.RSAKey.from_private_key_file(self.rsa_key_file)
+            self.client.connect(self.IP, self.port, self.user, pkey = self.rsa_key, timeout = self.ssh_connection_timeout)
             self.channel = self.client.get_transport().open_session()
             #self.logger.info("Network Element %s: Authentication successfully done." % (ne.IP,))
             return True

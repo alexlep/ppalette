@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import sys, os, pika, json
-import multiprocessing as mp
 from datetime import datetime, timedelta
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from ipaddress import IPv4Network
@@ -11,7 +10,7 @@ import tools
 from mq import MQ
 from models import Plugin, Host, Suite, Subnet
 from database import init_db, db_session
-from core.processing import Factory
+from core.threaded import Factory
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):

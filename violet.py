@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import json, sys, os, signal, time
-import multiprocessing as mp
+#import multiprocessing as mp
+#import threading as mpt
 from core.mq import MQ
-from core.processing import Factory
+from core.threaded import Factory, inChannelProcess
 from core.tools import draftClass, parseConfig, initLogging
 
-violetConfig = './config/violet_config.json'
+workingDir = os.path.dirname(os.path.abspath(__file__))
+violetConfig = workingDir + '/config/violet_config.json'
 
 class Violet(object):
     def __init__(self, configFile):
@@ -14,25 +16,29 @@ class Violet(object):
         self.queueConfig = draftClass(self.config.queue)
         self.log = initLogging(self.logConfig) # init logging
         self.MQ = MQ(self.queueConfig)
-        self.inChannel = self.MQ.initInChannel(self.callback)
-        if not self.inChannel:
+        """if not self.inChannel:
             self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."
-            sys.exit(1)
-        self.cProc = self.prepareWorkerForMQ() # separate consumer process
+            sys.exit(1)"""
         self.checks = self.preparePluginDict()
+        #self.stopper = mpt.Event
         self.factory = Factory(serviceType = 'violet',
                                workers_count = self.config.process_count,
                                mq_out_queue = self.queueConfig.outqueue,
                                mq_handler = self.MQ,
                                logger = self.log,
                                checks = self.checks)
+        self.factory.inWorker = self.prepareWorkerForMQ() # separate consumer process
+
+    def __call__(self, signum, frame):
+        print 'sigint captured'
+        self.destroy()
 
     def prepareWorkerForMQ(self):
-        return mp.Process(target=self.startConsumer)
+        return inChannelProcess(mqChannel = self.MQ.initInChannel(self.callback))
 
     def preparePluginDict(self):
-        tPlugDict = {}
+        tPlugDict = dict()
         for path in self.config.plugin_paths.split(';'):
             if path:
                 try:
@@ -47,31 +53,21 @@ class Violet(object):
                         tPlugDict[script] = "{0}/{1}".format(path, script)
         return tPlugDict
 
-    def startConsumer(self):
-        print(' [*] Waiting for messages. To exit press CTRL+C')
-        try:
-            self.inChannel.start_consuming()
-        except:
-            print "ABORTING VIOLET LISTENER"
-
     def startProcesses(self):
         self.factory.startWork()
-        self.cProc.start() # start separate consumer process
+        self.factory.inWorker.start()
+        while True:
+            time.sleep(1)
 
     def callback(self, ch, method, properties, body):
         self.factory.processQueue.put(body)
 
     def destroy(self):
-        self.inChannel.close()
         self.factory.goHome()
-
+        print 'workers_went_home'
+        sys.exit(0)
 
 if __name__ =='__main__':
     VioletApp = Violet(violetConfig)
+    signal.signal(signal.SIGINT, VioletApp)
     VioletApp.startProcesses()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        VioletApp.destroy()
-        print "aborted with your little filthy hands!"
