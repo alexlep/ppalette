@@ -26,6 +26,7 @@ def init_db(create_tables = False):
     try:
         Base.metadata.create_all(bind=engine)
         connected = True
-    except OperationalError:
+    except Exception as e:
+        print e
         connected = None
     return connected

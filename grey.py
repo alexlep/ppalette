@@ -14,7 +14,7 @@ greyConfig = './config/grey_config.json'
 
 class Grey(object):
     def __init__(self, configFile):
-        self.collectHistory = True
+        self.collectHistory = False #True
         self.config = tools.parseConfig(configFile)
         self.logConfig = tools.draftClass(self.config.log)
         self.queueConfig = tools.draftClass(self.config.queue)

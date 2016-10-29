@@ -16,7 +16,7 @@ class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
         super(BackgroundScheduler, self).__init__( {'apscheduler.executors.default': {
         'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
-        'max_workers': '20'
+        'max_workers': '1'
         }})
         self.config = tools.parseConfig(configFile)
         self.logConfig = tools.draftClass(self.config.log)
@@ -28,15 +28,16 @@ class Scheduler(BackgroundScheduler):
         if (not self.mqCheckOutChannel) or (not self.mqCommonJobsOutChannel):
             print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
             sys.exit(1)
-        self.factory = Factory(serviceType = 'red',
+        #self.outChannel = self.MQ.initOutChannel()
+        """self.factory = Factory(serviceType = 'red',
                                workers_count = self.config.process_count,
                                mq_out_queue = self.queueConfig.outqueue,
                                mq_handler = self.MQ,
-                               logger = self.log)
+                               logger = self.log)"""
         self.fillSchedule()
 
     def startRedService(self):
-        self.factory.startWork()
+        #self.factory.startWork()
         self.start()
 
     def taskChange(self, ch, method, properties, body):
@@ -61,22 +62,19 @@ class Scheduler(BackgroundScheduler):
     def fillSchedule(self):
         self.remove_all_jobs()
         schedule = self.getAllActiveTasksFromDB()
-        taskdict = {}
+        taskdict = dict()
         for job in schedule:
             if job.interval not in taskdict.keys():
-                taskdict[job.interval] = []
+                taskdict[job.interval] = list()
             taskdict[job.interval].append(job)
             #self.registerJob(job)
-        startTime = self.prepareStartTime(10)
-        counter_ = 0
+        startTime = self.prepareStartTime(15)
         for key in taskdict.keys():
             print key, len(taskdict[key]), len(taskdict[key]) % key, len(taskdict[key]) / key #35 192 17 5
             counter = 0
             for item in taskdict[key]:
                 if counter == key: counter = 0
                 self.registerJob(job = item, jobStartTime = startTime + timedelta(0, counter))
-                counter_ += 1
-                print counter_, item.hostname, item.script
                 counter += 1
 
     def getAllActiveTasksFromDB(self):
@@ -94,13 +92,17 @@ class Scheduler(BackgroundScheduler):
                 join((Host, Suite.host)).\
                 filter(Host.hostUUID == hostUUID, Plugin.pluginUUID == pluginUUID).first()
 
-    def registerJob(self, job, jobStartTime):
+    def registerJob(self, job, jobStartTime = False):
         jobDict = tools.prepareDictFromSQLA(job)
         message = tools.Message(jobDict)
         message.type = 'check'
         jobid = message.getScheduleJobID()
-        self.add_job(self.sendCommonJobToMQ, args=[message], trigger = 'interval', id = jobid, seconds = message.interval,
+        if jobStartTime:
+            self.add_job(self.sendCommonJobToMQ, args=[message], trigger = 'interval', id = jobid, seconds = message.interval,
                      misfire_grace_time=10, next_run_time = jobStartTime)
+        else:
+            self.add_job(self.sendCommonJobToMQ, args=[message], trigger = 'interval', id = jobid, seconds = message.interval,
+                     misfire_grace_time=10)
         if job.maintenance:
             self.pause_job(jobid)
 
@@ -126,8 +128,9 @@ class Scheduler(BackgroundScheduler):
     ### --------------------------------------
 
     def sendCommonJobToMQ(self, jobMessage):
-        self.factory.processQueue.put(jobMessage.tojson(refreshTime = True))
-        #print('{0} was sent to queue) ').format(jobMessage)
+        msg = jobMessage.tojson(refreshTime = True)
+        self.mqCheckOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=msg)
+        print msg
         return
 
     def sendDiscoveryRequest(self, subnetid):

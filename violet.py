@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 import json, sys, os, signal, time
-#import multiprocessing as mp
-#import threading as mpt
 from core.mq import MQ
 from core.threaded import Factory, inChannelProcess
 from core.tools import draftClass, parseConfig, initLogging
@@ -16,6 +14,7 @@ class Violet(object):
         self.queueConfig = draftClass(self.config.queue)
         self.log = initLogging(self.logConfig) # init logging
         self.MQ = MQ(self.queueConfig)
+        self.outChannel = self.MQ.initOutChannel()
         """if not self.inChannel:
             self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."
@@ -24,7 +23,7 @@ class Violet(object):
         #self.stopper = mpt.Event
         self.factory = Factory(serviceType = 'violet',
                                workers_count = self.config.process_count,
-                               mq_out_queue = self.queueConfig.outqueue,
+                               mq_config = self.queueConfig,
                                mq_handler = self.MQ,
                                logger = self.log,
                                checks = self.checks)
@@ -35,7 +34,7 @@ class Violet(object):
         self.destroy()
 
     def prepareWorkerForMQ(self):
-        return inChannelProcess(mqChannel = self.MQ.initInChannel(self.callback))
+        return inChannelProcess(mqChannel = self.MQ.initInChannelElse(), mqQueue = self.queueConfig.inqueue, pQueue = self.factory.processQueue)
 
     def preparePluginDict(self):
         tPlugDict = dict()
@@ -59,10 +58,9 @@ class Violet(object):
         while True:
             time.sleep(1)
 
-    def callback(self, ch, method, properties, body):
-        self.factory.processQueue.put(body)
-
     def destroy(self):
+        self.factory.inWorker.active = False
+        self.factory.inWorker.stop()
         self.factory.goHome()
         print 'workers_went_home'
         sys.exit(0)

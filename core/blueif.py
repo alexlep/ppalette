@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 from core.models import Host, Subnet, Plugin, History, Suite, Status #bcrypt, Schedule
 from core.database import init_db, db_session
@@ -139,7 +140,6 @@ class SubnetView(sqla.ModelView):
     @action('trigger discovery', 'Trigger Discovery', 'Are you sure you want to trigger discvery for selected subnets?')
     def trigger_discovery(self, ids):
         try:
-            #subnets = Subnet.query.filter(Subnet.id.in_(ids)).all()
             count = 0
             for subnetid in ids:
                 webif.Scheduler.sendDiscoveryRequest(subnetid)

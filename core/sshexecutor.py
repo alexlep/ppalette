@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import socket
 import paramiko
 import os.path
