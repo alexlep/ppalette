@@ -6,11 +6,18 @@
     "user" : "",
     "pasword" : "",
     "inqueue" : "redqueue",
-    "outqueue" : "violetqueue"
+    "outqueue" : "violetqueue",
+    "consumer_amount" : 4,
+    "sender_amount" : 4
   },
   "log": {
     "log_file" : "logs/violet.log",
     "log_level" : "INFO"
   },
-  "plugin_paths" : "/usr/lib/nagios/plugins/;/root"
+  "plugin_paths" : "/usr/lib/nagios/plugins/;/root",
+  "ssh": {
+    "host_key_file" : "~/.ssh/known_hosts",
+    "rsa_key_file" : "~/.ssh/id_rsa",
+    "ssh_connection_timeout" : 4
+  }
 }

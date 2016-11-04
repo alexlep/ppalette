@@ -1,41 +1,32 @@
 # -*- coding: utf-8 -*-
-import json, sys
+import sys, os
 from core.database import init_db, db_session
 from core.models import Status, History, Subnet, Host
 from datetime import datetime
 from sqlalchemy import update, insert, and_
 from core.mq import MQ
-from core import tools
-from sqlalchemy.dialects import mysql
+from core.tools import parseConfig, initLogging, getUniqueID, Message
 
 init_db(False)
-
-greyConfig = './config/grey_config.json'
+workingDir = os.path.dirname(os.path.abspath(__file__))
+greyConfig = workingDir + '/config/grey_config.json'
 
 class Grey(object):
     def __init__(self, configFile):
         self.collectHistory = True
-        self.config = tools.parseConfig(configFile)
-        self.logConfig = tools.draftClass(self.config.log)
-        self.queueConfig = tools.draftClass(self.config.queue)
-        self.log = tools.initLogging(self.logConfig) # init logging
-        self.MQ = MQ(self.queueConfig)
+        self.config = parseConfig(configFile)
+        self.log = initLogging(self.config.log, __name__) # init logging
+        self.MQ = MQ(self.config.queue, self.log)
         self.inQueue = self.MQ.initInRabbitPyQueue()
-        print self.inQueue
-        #if not self.inQueue:
-        #    self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
-        #    print "Unable to connect to RabbitMQ. Please check config and RMQ service."
-        #    sys.exit(1)
 
     def startConsumer(self):
         while True:
             if len(self.inQueue) > 0:
                 message = self.inQueue.get(acknowledge=False)
-                #print message.body
                 self.callback(message.body)
 
     def callback(self, body):
-        msg = tools.Message(body, fromJSON = True)
+        msg = Message(body, fromJSON = True)
         print msg.scheduled_time
         if msg.type == 'check':
             msg.time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")
@@ -53,7 +44,7 @@ class Grey(object):
                    last_check_run = msg.time, scheduled_check_time = msg.scheduled_time,
                    interval = msg.interval)
         if not db_session.execute(updateQ).rowcount:
-            insertQ = insert(Status).values(statusid = tools.getUniqueID(),
+            insertQ = insert(Status).values(statusid = getUniqueID(),
                                         plugin_id = msg.pluginid,
                                         host_id = msg.hostid,
                                         last_status = msg.output,
@@ -78,7 +69,7 @@ class Grey(object):
             existingHost = db_session.query(Host).filter(Host.ipaddress == msg.ipaddress).first()
             if (not existingHost):
                 newHost = Host()
-                newHost.hostUUID = tools.getUniqueID()
+                newHost.hostUUID = getUniqueID()
                 newHost.hostname = msg.hostname
                 newHost.ipaddress = msg.ipaddress
                 newHost.subnet_id = msg.subnet_id

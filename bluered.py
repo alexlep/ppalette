@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
+import os
 from flask import Flask
-from core.blueif import webif, db_session
-from core.red_scheduler import Scheduler
+from core.blue import webif, db_session
+from core.red import Scheduler
 from core.tools import parseConfig, draftClass, initLogging
 
-blueConfigFile = './config/blue_config.json'
-redConfigFile = './config/red_config.json'
+workingDir = os.path.dirname(os.path.abspath(__file__))
+blueConfigFile = workingDir + '/config/blue_config.json'
+redConfigFile = workingDir + '/config/red_config.json'
 
 blueConfig = parseConfig(blueConfigFile)
 

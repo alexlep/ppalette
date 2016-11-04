@@ -1,18 +1,12 @@
 # -*- coding: utf-8 -*-
-import socket
 import paramiko
-import os.path
-import sys
 
 class SSHConnection(object):
-    host_key_file = os.path.expanduser('~/.ssh/known_hosts')
-    rsa_key_file = os.path.expanduser('~/.ssh/id_rsa')
-    ssh_connection_timeout = 4 # in seconds
 
-    def __init__(self, ipaddress, user, port = 22):
-        if not (os.path.isfile(self.host_key_file)) or not (os.path.isfile(self.host_key_file)):
-            print 'No host key file or no rsa key!'
-            sys.exit(1)
+    def __init__(self, ipaddress, user, ssh_config,  port = 22):
+        self.host_key_file = ssh_config.host_key_file
+        self.rsa_key_file = ssh_config.host_key_file
+        self.ssh_connection_timeout = ssh_config.ssh_connection_timeout # in seconds
         self.IP = ipaddress
         self.user = user
         self.port = port

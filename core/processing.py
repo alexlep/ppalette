@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
-#import threading as mpt
-import multiprocessing as mpt
 import signal
 from threading import Thread
-from multiprocessing import Manager
+from multiprocessing import Process, Manager
 from datetime import datetime
-from pika.exceptions import BodyTooLongError
 import tools
-from sshexecutor import SSHConnection
 from rabbitpy import Message
 
-class outChannelThread(Thread):
+class Sender(Thread):
     def __init__(self, mqChannel, mqQueue, pQueue):
-        super(outChannelThread, self).__init__()
+        super(Sender, self).__init__()
         self.name = 'mqOutChannelThread'
         self.mqChannel = mqChannel
         self.mqQueue = mqQueue
@@ -43,11 +39,10 @@ class outChannelThread(Thread):
         self.mqChannel.close()
         print 'closed channel'
 
-class inChannelThread(Thread):
+class Consumer(Thread):
     def __init__(self, mqQueue, pQueue):
-        super(inChannelThread, self).__init__()
+        super(Consumer, self).__init__()
         self.name = 'mqInChannelThread'
-        #self.mqChannel = mqChannel
         self.mqQueue = mqQueue
         self.daemon = True
         self.active = True
@@ -61,32 +56,14 @@ class inChannelThread(Thread):
                 message = self.mqQueue.get(acknowledge=False)
                 if message: # sometimes message is None... to check rabbitpy issues
                     counter += 1
-                    self.in_process_queue.put(message.body)
+                    try:
+                        self.in_process_queue.put(message.body)
+                    except IOError:
+                        self.active = False
+                        break
                     if counter == 1000:
-
                         print datetime.now(), self.in_process_queue.qsize(), 'mqsize' ,len(self.mqQueue)
                         counter = 0
-            #print message.json()
-            """
-                        try:
-                for method_frame, properties, body in self.mqChannel.consume(self.mqQueue, no_ack=True):
-                    self.in_process_queue.put(body)
-                    #self.mqChannel.basic_ack(method_frame.delivery_tag)
-                    counter += 1
-                    #print counter
-                    if counter == 1000:
-                        print datetime.now(), self.in_process_queue.qsize()
-                        counter = 0
-            except AttributeError as ae:
-                print ae
-                print body, type(body)
-            except BodyTooLongError as btle:
-                print body
-                print "GOT BTLE Exception", btle
-            except Exception as e:
-                print e
-                pass"""
-
 
     def stop(self):
         print '[*] Stopping consumer'
@@ -95,18 +72,18 @@ class inChannelThread(Thread):
         self.mqChannel.close()
         print 'closed channel'
 
-class Worker(mpt.Process):
+class Worker(Process):
     """
     http://jhshi.me/2015/12/27/handle-keyboardinterrupt-in-python-multiprocessing/index.html
     """
-    def __init__(self, serviceType, InPQueue, OutPQueue, logger, checks = {}):
+    def __init__(self, InPQueue, OutPQueue, logger, ssh_config, checks = {}):
         super(Worker, self).__init__()
         self.in_process_queue = InPQueue
         self.out_process_queue = OutPQueue
         self.logger = logger
         self.checks = checks
-        self.serviceType = serviceType
         self.workingMode = True
+        self.ssh_config = ssh_config
 
     def run(self):
         counter = 0
@@ -173,7 +150,11 @@ class Worker(mpt.Process):
         if job.type == 'check':
             job.executor = self._checkPluginAvailability(job.script)
             if job.ssh_wrapper:
-                output = tools.executeProcessViaSSH(job)
+                try:
+                    output = tools.executeProcessViaSSH(job, self.ssh_config)
+                except IOError:
+                    print 'Unable to execute SSH command - cannot reach some of ssh configuration files({0} and {1})!'.format(self.ssh_config.rsa_key_file, self.ssh_config.host_key_file)
+                    self.logger.warning('Unable to execute SSH command - cannot reach some of ssh configuration files({0} and {1})!'.format(self.ssh_config.rsa_key_file, self.ssh_config.host_key_file))
             else:
                 output = tools.executeProcess(job)
             self.logger.info('Worker {0} successfully executed {1} for host {2} (ip:{3})'.format(self.name, output.script, output.hostname, output.ipaddress))
@@ -184,55 +165,48 @@ class Worker(mpt.Process):
         return output
 
 class Factory(object):
-    def __init__(self, serviceType, workers_count, mq_config, mq_handler, logger, checks = {}):
+    def __init__(self): #mq_config, mq_handler, logger, checks = {}):
         self.in_process_queue_f = Manager().Queue()
         self.out_process_queue_f = Manager().Queue()
-        self.mqOutQueue = mq_config.outqueue
-        self.mqInQueue = mq_config.inqueue
-        self.logger = logger
-        self.checks = checks
-        self.MQ = mq_handler
-        self.workers = self._prepareWorkersList(workers_count, serviceType)
-        self.in_mq_threads = list()
-        self.out_mq_threads = list()
+        self.senders = list()
+        self.consumers = list()
 
-    def _prepareWorkersList(self, procCount, serviceType):
-        print procCount
-        return [ Worker(InPQueue = self.in_process_queue_f,
+    def prepareWorkers(self, procCount, logger, checks, ssh_config):
+        self.workers =  [ Worker(InPQueue = self.in_process_queue_f,
                         OutPQueue = self.out_process_queue_f,
-                        serviceType = serviceType,
-                        logger = self.logger,
-                        checks = self.checks) for _ in range(procCount) ]
+                        logger = logger,
+                        checks = checks,
+                        ssh_config = ssh_config) for _ in range(procCount) ]
 
     def startWork(self):
         for w in self.workers: # start each worker for executing plugins
             w.daemon = True
             w.start()
-        for c in self.in_mq_threads: # start each worker for executing plugins
+        for c in self.consumers: # start each worker for executing plugins
             c.daemon = True
             c.start()
             print ' in started'
-        for s in self.out_mq_threads: # start each worker for executing plugins
+        for s in self.senders: # start each worker for executing plugins
             s.daemon = True
             s.start()
 
     def stopWork(self):
         for w in self.workers: # start each worker for executing plugins
             w.workingMode = False
-        for c in self.in_mq_threads: # start each worker for executing plugins
+        for c in self.consumers: # start each worker for executing plugins
             #c.in_process_queue.put("break")
             c.active = False
-        for s in self.out_mq_threads: # start each worker for executing plugins
+        for s in self.senders: # start each worker for executing plugins
             #s.out_process_queue.put("break")
             s.active = False
 
     def goHome(self):
         self.stopWork()
-        for c in self.in_mq_threads: # start each worker for executing plugins
+        for c in self.consumers: # start each worker for executing plugins
             if c.isAlive():
                 #c.mqQueue.close()
                 c.join()
-        for s in self.out_mq_threads: # start each worker for executing plugins
+        for s in self.senders: # start each worker for executing plugins
             if s.isAlive():
                 s.mqChannel.close()
                 s.join()

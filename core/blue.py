@@ -7,7 +7,7 @@ from flask_admin import Admin#, BaseView
 from flask_admin.actions import action
 from flask_admin.babel import ngettext
 from flask_admin.contrib import sqla
-from wtforms import Form, BooleanField, TextField, PasswordField, validators
+from wtforms import BooleanField, TextField, PasswordField, validators
 from sqlalchemy.sql.functions import now
 from core.tools import getUniqueID
 

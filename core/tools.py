@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-import sys
+import os, sys
 import subprocess
 import logging
 import json
 import uuid
-from datetime import datetime
 import socket
+from datetime import datetime
 from sshexecutor import SSHConnection
 
 class Message(object):
@@ -28,7 +28,7 @@ class Message(object):
     exitcode = -1
     time = ""
     executor = ""
-    def __init__ (self, data, fromJSON = False):
+    def __init__ (self, data = dict(), fromJSON = False):
         if fromJSON:
             data = json.loads(data)
         self.__dict__.update(data)
@@ -49,7 +49,7 @@ class Message(object):
         return "{0} {1} {2}".format(self.executor, self.params, self.ipaddress)
 
     def prepareDiscoveryCommand(self):
-        return "ping -c1 -W1 {0}".format(self.ipaddress)
+        return "ping -c3 -W1 {0}".format(self.ipaddress)
 
     def removeWrongASCIISymbols(self):
         self.output = self.output.decode('utf-8','ignore').encode("utf-8")
@@ -80,7 +80,19 @@ def parseConfig(config):
     except IOError as ie:
         print "Error in opening configuration file {0}: {1}".format(config, ie)
         sys.exit(1)
-    return draftClass(config_data)
+    config = draftClass(config_data)
+    config.log = draftClass(config.log)
+    try: # ome service don't use MQ, so there is no config for them (blue, for example)
+        config.queue = draftClass(config.queue)
+    except AttributeError:
+        pass
+    try: # same with ssh, for violet
+        config.ssh = draftClass(config.ssh)
+        config.ssh.host_key_file = os.path.expanduser(config.ssh.host_key_file)
+        config.ssh.rsa_key_file = os.path.expanduser(config.ssh.rsa_key_file)
+    except AttributeError:
+        pass
+    return config
 
 @time_wrap
 def executeDiscovery(job):
@@ -102,13 +114,15 @@ def executeProcess(job):
     return job
 
 @time_wrap
-def executeProcessViaSSH(job):
-    conn = SSHConnection(ipaddress = job.ipaddress, user = job.login)
+def executeProcessViaSSH(job, ssh_config):
+    if not (os.path.isfile(ssh_config.host_key_file)) or not (os.path.isfile(ssh_config.host_key_file)):
+        raise IOError
+    conn = SSHConnection(ipaddress = job.ipaddress, user = job.login, ssh_config = ssh_config)
     job.output, job.details, job.exitcode = conn.executeCommand(job.prepareSSHCommand()) # here remote connection is killed
     return job
 
-def initLogging(logconfig):
-    logger = logging.getLogger('')
+def initLogging(logconfig, serviceName):
+    logger = logging.getLogger(serviceName)
     hdlr = logging.FileHandler(logconfig.log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
