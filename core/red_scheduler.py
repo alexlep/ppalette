@@ -23,11 +23,10 @@ class Scheduler(BackgroundScheduler):
         self.log = tools.initLogging(self.logConfig)
         self.queueConfig = tools.draftClass(self.config.queue)
         self.MQ = MQ(self.queueConfig) # init MQ
-        self.mqCheckOutChannel = self.MQ.initOutChannel() # to violet
-        self.mqCommonJobsOutChannel = self.MQ.initOutChannel() # to violet
-        if (not self.mqCheckOutChannel) or (not self.mqCommonJobsOutChannel):
-            print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
-            sys.exit(1)
+        self.mqCommonJobsOutChannel = self.MQ.initOutRabbitPyChannel() # to violet
+        #if (not self.mqCheckOutChannel) or (not self.mqCommonJobsOutChannel):
+        #    print "Unable to connect to RabbitMQ. Check configuration and if RabbitMQ is running. Aborting."
+        #    sys.exit(1)
         #self.outChannel = self.MQ.initOutChannel()
         """self.factory = Factory(serviceType = 'red',
                                workers_count = self.config.process_count,
@@ -129,8 +128,9 @@ class Scheduler(BackgroundScheduler):
 
     def sendCommonJobToMQ(self, jobMessage):
         msg = jobMessage.tojson(refreshTime = True)
-        self.mqCheckOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=msg)
-        print msg
+        message = self.MQ.prepareMsg(self.mqCommonJobsOutChannel, msg)
+        message.publish('', self.queueConfig.outqueue)
+        #self.mqCommonJobsOutChannel.basic_publish(exchange='', routing_key=self.queueConfig.outqueue, body=msg)
         return
 
     def sendDiscoveryRequest(self, subnetid):

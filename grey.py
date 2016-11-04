@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import pika, json
+import json, sys
 from core.database import init_db, db_session
 from core.models import Status, History, Subnet, Host
 from datetime import datetime
@@ -14,23 +14,28 @@ greyConfig = './config/grey_config.json'
 
 class Grey(object):
     def __init__(self, configFile):
-        self.collectHistory = False #True
+        self.collectHistory = True
         self.config = tools.parseConfig(configFile)
         self.logConfig = tools.draftClass(self.config.log)
         self.queueConfig = tools.draftClass(self.config.queue)
         self.log = tools.initLogging(self.logConfig) # init logging
         self.MQ = MQ(self.queueConfig)
-        self.inChannel = self.MQ.initInChannel(self.callback)
-        if not self.inChannel:
-            self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
-            print "Unable to connect to RabbitMQ. Please check config and RMQ service."
-            sys.exit(1)
+        self.inQueue = self.MQ.initInRabbitPyQueue()
+        print self.inQueue
+        #if not self.inQueue:
+        #    self.log.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
+        #    print "Unable to connect to RabbitMQ. Please check config and RMQ service."
+        #    sys.exit(1)
 
     def startConsumer(self):
-        self.inChannel.start_consuming()
+        while True:
+            if len(self.inQueue) > 0:
+                message = self.inQueue.get(acknowledge=False)
+                #print message.body
+                self.callback(message.body)
 
-    def callback(self, ch, method, properties, body):
-        msg = tools.Message(json.loads(body))
+    def callback(self, body):
+        msg = tools.Message(body, fromJSON = True)
         print msg.scheduled_time
         if msg.type == 'check':
             msg.time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")

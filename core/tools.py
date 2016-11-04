@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import sys
-import json
 import subprocess
 import logging
 import json
@@ -28,8 +27,11 @@ class Message(object):
     output = ""
     exitcode = -1
     time = ""
-    def __init__ (self, dictdata):
-        self.__dict__.update(dictdata)
+    executor = ""
+    def __init__ (self, data, fromJSON = False):
+        if fromJSON:
+            data = json.loads(data)
+        self.__dict__.update(data)
         scheduled_time = datetime.now()
 
     def getScheduleJobID(self):
@@ -39,6 +41,18 @@ class Message(object):
         if refreshTime:
             self.scheduled_time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
         return json.dumps(self.__dict__)
+
+    def prepareSSHCommand(self):
+        return "{0} {1}".format(self.executor, self.params)
+
+    def prepareLocalCommand(self):
+        return "{0} {1} {2}".format(self.executor, self.params, self.ipaddress)
+
+    def prepareDiscoveryCommand(self):
+        return "ping -c1 -W1 {0}".format(self.ipaddress)
+
+    def removeWrongASCIISymbols(self):
+        self.output = self.output.decode('utf-8','ignore').encode("utf-8")
 
 class draftClass:
     def __init__(self, dictdata):
@@ -69,8 +83,16 @@ def parseConfig(config):
     return draftClass(config_data)
 
 @time_wrap
-def executeProcess(command, job):
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+def executeDiscovery(job):
+    process = subprocess.Popen(job.prepareDiscoveryCommand(), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    job.output = process.communicate()[0].rstrip() # here subprocess is killed
+    job.exitcode = process.returncode
+    job.hostname = resolveIP(job.ipaddress)
+    return job
+
+@time_wrap
+def executeProcess(job):
+    process = subprocess.Popen(job.prepareLocalCommand(), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out = process.communicate()[0].rstrip() # here subprocess is killed
     try:
         job.output, job.details = out.split("|")
@@ -80,9 +102,9 @@ def executeProcess(command, job):
     return job
 
 @time_wrap
-def executeProcessViaSSH(command, job):
+def executeProcessViaSSH(job):
     conn = SSHConnection(ipaddress = job.ipaddress, user = job.login)
-    job.output, job.details, job.exitcode = conn.executeCommand(command) # here remote connection is killed
+    job.output, job.details, job.exitcode = conn.executeCommand(job.prepareSSHCommand()) # here remote connection is killed
     return job
 
 def initLogging(logconfig):
@@ -106,7 +128,7 @@ def prepareDict(converted,**kwargs):
 def prepareDictFromSQLA(item):
     return dict(zip(item.keys(), item))
 
-def fromJSON(data):
+def fromJSONtoDict(data):
     try:
         msg = json.loads(data)
     except:
