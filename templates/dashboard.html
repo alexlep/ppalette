@@ -1,0 +1,148 @@
+{% extends 'admin/master.html' %}
+{% import 'admin/lib.html' as lib with context %}
+{% import 'admin/static.html' as admin_static with context%}
+{% import 'admin/model/layout.html' as model_layout with context %}
+{% import 'admin/actions.html' as actionlib with context %}
+
+{% block head %}
+    {{ super() }}
+    {{ lib.form_css() }}
+    <style media="screen" type="text/css">
+    .panel-body .btn:not(.btn-block) { width:120px;margin-bottom:10px; }
+    .panel-refresh {
+     height:250px;
+     position:relative;
+    }
+
+    .refresh-container {
+     position:absolute;
+     top:0;
+     right:0;
+     background:rgba(200,200,200,0.25);
+     width:100%;
+     height:100%;
+     display: none;
+     text-align:center;
+     z-index:4;
+    }
+    .refresh-spinner {
+     padding: 30px;
+     opacity: 0.8;
+    }
+    .row {
+      margin: 0;
+    }
+</style>
+
+{% endblock %}
+<!-- div class="col-md-6"-->
+
+{% block body %}
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><a id="refresh2" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks status</div>
+      <div class="panel-body">
+        <a href="#" class="btn btn-info btn-lg" role="button"><span class="glyphicon glyphicon-info-sign"></span> <br/>{{status.checks_active}} Checks </a>
+        <a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a>
+        <a href="#" class="btn btn-warning btn-lg" role="button"><span class="glyphicon glyphicon-question-sign"></span> <br/>{{status.checks_warn_count}} Warnings</a>
+        <a href="#" class="btn btn-success btn-lg" role="button"><span class="glyphicon glyphicon-ok-sign"></span> <br/>{{status.checks_ok_count}} OK</a>
+      </div>
+    </div>
+    <div class="panel panel-default">
+      <div class="panel-heading"><a id="refresh2" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks status - {{status.checks_active}} active checks</div>
+      <div class="panel-body">
+        <a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a>
+        <a href="#" class="btn btn-warning btn-lg" role="button"><span class="glyphicon glyphicon-question-sign"></span> <br/>{{status.checks_warn_count}} Warnings</a>
+        <a href="#" class="btn btn-success btn-lg" role="button"><span class="glyphicon glyphicon-ok-sign"></span> <br/>{{status.checks_ok_count}} OK</a>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><a id="refresh1" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Violet Instances connected</div>
+      <div class="panel-body panel-refresh">
+     	<div class="refresh-container"></div>
+        <div class="refresh-data">
+        	This is the original data that will update upon refresh..
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% if violetstats %}
+  {% for key in violetstats.keys() %}
+    {{ violetstats[key] }}
+  {% endfor %}
+{% endif %}
+
+
+{% endblock %}
+
+{% block tail_js %}
+<script src="{{ admin_static.url(filename='vendor/jquery.min.js', v='2.1.4') }}" type="text/javascript"></script>
+{% endblock %}
+
+{% block tail %}
+
+<script>
+$.fn.refreshMe = function(opts){
+
+      var $this = this,
+          defaults = {
+            ms:1000,
+            parentSelector:'.panel',
+            started:function(){},
+            completed:function(){}
+          },
+          settings = $.extend(defaults, opts);
+
+      var par = this.parents(settings.parentSelector);
+      var panelToRefresh = par.find('.refresh-container');
+      var dataToRefresh = par.find('.refresh-data');
+
+      var ms = settings.ms;
+      var started = settings.started;		//function before timeout
+      var completed = settings.completed;	//function after timeout
+
+      $this.click(function(){
+        panelToRefresh.show();
+        if (dataToRefresh) {
+          started(dataToRefresh);
+        }
+        setTimeout(function(){
+          if (dataToRefresh) {
+              completed(dataToRefresh);
+          }
+          panelToRefresh.fadeOut(500);
+        },ms);
+        return false;
+      })//click
+
+
+$.fn.customRequest = function (ele) {
+         $.ajax({
+           type: "GET",
+           url: 'http://localhost:5000/ajaxcallvioletheartbeats/',
+           success: function(data) {
+              ele.html(JSON.stringify(data));
+           },
+           error: function(e)
+           {
+              alert(e.message);
+           }
+        });
+      }
+
+}/* end function refreshMe */
+
+
+$(document).ready(function(){
+
+  $('#refresh1').refreshMe({
+    started:function(ele){ele.html("Refreshing Violet statistics...")},
+  	completed:function(ele){$.fn.customRequest(ele)}
+  });
+
+});
+</script>
+{% endblock %}

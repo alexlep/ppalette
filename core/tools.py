@@ -5,8 +5,54 @@ import logging
 import json
 import uuid
 import socket
-from datetime import datetime
+import datetime as dt
+#from datetime import datetime
 from sshexecutor import SSHConnection
+
+class Stats(object):
+    interval = int()
+    status = int()
+    identifier = str()
+    worker_count = int()
+    worker_alive = int()
+    consumers_count = int()
+    consumers_alive = int()
+    senders_count = int()
+    senders_alive = int()
+    input_queue_size = int()
+    throughput = int()
+    max_throughput = int()
+    connection_time = str()
+    last_update_time = str()
+    ram_used = int()
+    raw_amount = int()
+
+    def __init__ (self, data = dict(), fromJSON = False):
+        if fromJSON:
+            data = json.loads(data)
+        self.__dict__.update(data)
+
+    def tojson(self):
+        return json.dumps(self.__dict__)
+
+    def setConnectionTime(self):
+        self.connection_time = dt.datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+
+    def performChecks(self):
+        """
+        Check when heartbeat was last time updated.
+        if interval * 3 = warning (status 1)
+        if interval * 10 = error (status 2)
+        """
+        current_date = dt.datetime.now()
+        last_hb_sent = dt.datetime.strptime(self.last_update_time, "%H:%M:%S:%d:%m:%Y")
+        diff = (current_date - last_hb_sent).seconds
+        if diff > (self.interval * 10):
+            self.status = 2
+        elif diff > (self.interval * 3):
+            self.status = 1
+        else:
+            self.status = 0
 
 class Message(object):
     type = ""
@@ -32,14 +78,14 @@ class Message(object):
         if fromJSON:
             data = json.loads(data)
         self.__dict__.update(data)
-        scheduled_time = datetime.now()
+        scheduled_time = dt.datetime.now()
 
     def getScheduleJobID(self):
         return self.hostUUID + self.pluginUUID
 
     def tojson(self, refreshTime = False):
         if refreshTime:
-            self.scheduled_time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+            self.scheduled_time = dt.datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
         return json.dumps(self.__dict__)
 
     def prepareSSHCommand(self):
@@ -55,16 +101,19 @@ class Message(object):
         self.output = self.output.decode('utf-8','ignore').encode("utf-8")
 
 class draftClass:
-    def __init__(self, dictdata):
+    def __init__(self, dictdata = dict()):
         self.__dict__.update(dictdata)
 
     def updateWithDict(self, dictdata):
         self.__dict__.update(dictdata)
 
+    def tojson(self):
+        return json.dumps(self.__dict__)
+
 def time_wrap(func):
     def func_wrapper(*args, **kwargs):
         data = func(*args, **kwargs)
-        data.time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+        data.time = dt.datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
         return data
     return func_wrapper
 
@@ -121,7 +170,7 @@ def executeProcessViaSSH(job, ssh_config):
     job.output, job.details, job.exitcode = conn.executeCommand(job.prepareSSHCommand()) # here remote connection is killed
     return job
 
-def initLogging(logconfig, serviceName):
+def initLogging(logconfig, serviceName = str()):
     logger = logging.getLogger(serviceName)
     hdlr = logging.FileHandler(logconfig.log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -149,8 +198,17 @@ def fromJSONtoDict(data):
         msg = None
     return msg
 
-def getUniqueID():
-    return str(uuid.uuid4())
+def fromDictToJson(data):
+    msg = json.dumps(data)
+    #    msg = None
+    return msg
+
+def getUniqueID(short = False):
+    if short:
+        identifier = str(uuid.uuid4().fields[-1])[:5]
+    else:
+        identifier = str(uuid.uuid4())
+    return identifier
 
 def resolveIP(ipaddress):
     try:

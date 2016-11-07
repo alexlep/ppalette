@@ -6,7 +6,8 @@
     "user" : "",
     "pasword" : "",
     "inqueue" : "",
-    "outqueue" : "redqueue"
+    "outqueue" : "redqueue",
+    "monitoring_inqueue" : "violetstats"
   },
   "log": {
     "log_file" : "logs/red.log",

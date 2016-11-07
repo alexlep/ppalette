@@ -1,5 +1,5 @@
 {
-  "process_count" : 32,
+  "process_count" : 64,
   "queue" : {
     "host" : "localhost",
     "port" : "",
@@ -8,7 +8,8 @@
     "inqueue" : "redqueue",
     "outqueue" : "violetqueue",
     "consumer_amount" : 4,
-    "sender_amount" : 4
+    "sender_amount" : 4,
+    "monitoring_outqueue" : "violetstats"
   },
   "log": {
     "log_file" : "logs/violet.log",
@@ -19,5 +20,6 @@
     "host_key_file" : "~/.ssh/known_hosts",
     "rsa_key_file" : "~/.ssh/id_rsa",
     "ssh_connection_timeout" : 4
-  }
+  },
+  "heartbeat_interval" : 5
 }

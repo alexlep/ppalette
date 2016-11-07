@@ -13,16 +13,22 @@ class MQ(object):
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."
             sys.exit(1)
 
-    def initInRabbitPyQueue(self):
+    def initInRabbitPyQueue(self, mqInQueue = None):
         inChannel = self.PyConnection.channel()
-        Queue  = rabbitpy.Queue(inChannel, self.config.inqueue)
+        if not mqInQueue:
+            Queue  = rabbitpy.Queue(inChannel, self.config.inqueue)
+        else:
+            Queue  = rabbitpy.Queue(inChannel, mqInQueue)
         Queue.durable = True
         Queue.declare()
         return Queue
 
-    def initOutRabbitPyChannel(self):
+    def initOutRabbitPyChannel(self, mqOutQueue = None):
         outChannel = self.PyConnection.channel()
-        exchange = rabbitpy.Exchange(outChannel, self.config.outqueue)
+        if not mqOutQueue:
+            exchange = rabbitpy.Exchange(outChannel, self.config.outqueue)
+        else:
+            exchange = rabbitpy.Exchange(outChannel, mqOutQueue)
         exchange.declare()
         return outChannel
 

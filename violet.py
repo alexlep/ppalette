@@ -2,16 +2,19 @@
 import sys, os, signal, time
 from core.mq import MQ
 from core.processing import Factory, Sender, Consumer
-from core.tools import draftClass, parseConfig, initLogging
+from core.tools import draftClass, parseConfig, initLogging, getUniqueID
+from apscheduler.schedulers.background import BackgroundScheduler
 
 workingDir = os.path.dirname(os.path.abspath(__file__))
 violetConfig = workingDir + '/config/violet_config.json'
 
 class Violet(object):
     def __init__(self, configFile):
+        self.identifier = getUniqueID(short = True)
         self.config = parseConfig(configFile)
-        self.log = initLogging(self.config.log, __name__) # init logging
+        self.log = initLogging(self.config.log) # init logging
         self.MQ = MQ(self.config.queue, self.log)
+        self.senderStatsChannel = self.MQ.initOutRabbitPyChannel(self.config.queue.monitoring_outqueue)
         self.checks = self.preparePluginDict()
         self.factory = Factory()
         self.factory.prepareWorkers(procCount = self.config.process_count,
@@ -20,6 +23,7 @@ class Violet(object):
                                     ssh_config = self.config.ssh)
         self._prepareConsumers() # separate consumer thread
         self._prepareSenders() # separate sender thread
+        self.MonitoringScheduler = self._initScheduler()
 
     def __call__(self, signum, frame):
         print 'sigint captured'
@@ -43,6 +47,7 @@ class Violet(object):
 
     def startProcesses(self):
         self.factory.startWork()
+        self.MonitoringScheduler.start()
         while True:
             time.sleep(1)
 
@@ -50,6 +55,21 @@ class Violet(object):
         self.factory.goHome()
         print 'workers_went_home'
         sys.exit(0)
+
+    def _initScheduler (self):
+        scheduler = BackgroundScheduler ({'apscheduler.executors.default': {
+        'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+        'max_workers': '1'
+        }})
+        scheduler.add_job(self._sendStats, args=[self.config.heartbeat_interval], trigger = 'interval', id = self.identifier, seconds = self.config.heartbeat_interval,
+                             misfire_grace_time=10)
+        return scheduler
+
+    def _sendStats(self, interval):
+        statistics =  self.factory.gatherStats(interval)
+        statistics.identifier = self.identifier
+        message = self.MQ.prepareMsg(self.senderStatsChannel, statistics.tojson())
+        message.publish('', self.config.queue.monitoring_outqueue)
 
     def _prepareConsumers(self):
         for i in range(self.config.queue.consumer_amount):

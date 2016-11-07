@@ -1,0 +1,136 @@
+{% import 'admin/layout.html' as layout with context -%}
+{% import 'admin/static.html' as admin_static with context %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{% block title %}{% if admin_view.category %}{{ admin_view.category }} - {% endif %}{{ admin_view.name }} - {{ admin_view.admin.name }}{% endblock %}</title>
+    {% block head_meta %}
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="">
+        <meta name="author" content="">
+    {% endblock %}
+    {% block head_css %}
+        <link href="{{ admin_static.url(filename='bootstrap/bootstrap3/css/bootstrap.min.css', v='3.3.5') }}" rel="stylesheet">
+        <link href="{{ admin_static.url(filename='bootstrap/bootstrap3/css/bootstrap-theme.min.css', v='3.3.5') }}" rel="stylesheet">
+        <link href="{{ admin_static.url(filename='admin/css/bootstrap3/admin.css', v='1.1.1') }}" rel="stylesheet">
+        <style>
+        body {
+            background-color: #293846;
+        }
+        .container-fluid {
+          padding: 0;
+          margin: 0;
+        }
+        .navbar-static-side {
+          z-index: 2001;
+          position: absolute;
+          width: 160px;
+          background-color: #293846;
+        }
+        .main {
+          position: relative !important;
+          margin: 0px 0px 0px 160px;
+          padding: 15px;
+          background-color: #f3f3f4;
+        }
+        .full_width {
+          width: 100%;
+        }
+        .header {
+          height: 40px;
+        }
+        .navbar-brand {
+          padding : 10px 15px;
+        }
+        .model-list {
+          font-size: 12px;
+        }
+        .navbar-collapse {
+          padding-left: 0;
+          padding-right: 0;
+        }
+        .navbar-collapse li a {
+          color: #a7b1c2;
+        }
+        .navbar-collapse li .active a {
+          font-weight: bold;
+        }
+        .page-header{
+          padding: 0;
+          margin: 10px 0 10px;
+        }
+        .page-header h3 {
+          padding: 0;
+          margin: 0 0 10px;
+        }
+        </style>
+    {% endblock %}
+    {% block head %}
+    {% endblock %}
+    {% block head_tail %}
+    {% endblock %}
+  </head>
+  <body>
+    {% block page_body %}
+    <div class="container-fluid">
+      <div class="header full_width">
+        <div class="navbar-header">
+          {% block brand %}
+          <a class="navbar-brand" href="#">{{ admin_view.admin.name }}</a>
+          {% endblock %}
+        </div>
+      </div>
+      <!--nav class="navbar navbar-default" role="navigation" -->
+      <div class="navbar-static-side">
+      <nav class="navbar" role="navigation">
+        <!-- Brand and toggle get grouped for better mobile display -->
+
+        <!-- navbar content -->
+        <!-- div class="collapse navbar-collapse" id="admin-navbar-collapse" -->
+          <div class="collapse navbar-collapse pull-left full_width" >
+            {% block main_menu %}
+
+            <ul class="nav nav-list">
+              {{ layout.menu() }}
+            </ul>
+            {% endblock %}
+
+            {% block menu_links %}
+            <ul class="nav navbar-nav navbar-right">
+              {{ layout.menu_links() }}
+            </ul>
+            {% endblock %}
+            {% block access_control %}
+            {% endblock %}
+          </div>
+      </nav>
+    </div>
+
+      {% block messages %}
+      {{ layout.messages() }}
+      {% endblock %}
+
+      {# store the jinja2 context for form_rules rendering logic #}
+      {% set render_ctx = h.resolve_ctx() %}
+      <div class='main'>
+        <div class='page-header'>
+          <H3>{{ admin_view.name }}</h3>
+        </div>
+      {% block body %}{% endblock %}
+    </div>
+    </div>
+    {% endblock %}
+
+    {% block tail_js %}
+    <script src="{{ admin_static.url(filename='vendor/jquery.min.js', v='2.1.4') }}" type="text/javascript"></script>
+    <script src="{{ admin_static.url(filename='bootstrap/bootstrap3/js/bootstrap.min.js', v='3.3.5') }}" type="text/javascript"></script>
+    <script src="{{ admin_static.url(filename='vendor/moment.min.js', v='2.9.0') }}" type="text/javascript"></script>
+    <script src="{{ admin_static.url(filename='vendor/select2/select2.min.js', v='3.5.2') }}" type="text/javascript"></script>
+    {% endblock %}
+
+    {% block tail %}
+    {% endblock %}
+  </body>
+</html>

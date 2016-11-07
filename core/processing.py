@@ -17,20 +17,28 @@ class Sender(Thread):
         self.out_process_queue = pQueue
 
     def run(self):
-        counter = 0
+        self.max_counter = 0
+        self.counter = 0
         while self.active:
             try:
                 msg = self.out_process_queue.get(True)
                 if msg == 'break': break
                 message = Message(self.mqChannel, msg)
                 message.publish('', self.mqQueue)
-                counter += 1
-                if counter == 1000:
-                    print datetime.now()
-                    counter = 0
+                self.counter += 1
+                #if self.counter == 1000:
+                    #print datetime.now(), self.name, 'processed count  1000 reached'
+                    #counter = 0
             except EOFError:
                 print self.name, 'IOERROR, expected'
                 self.active = False
+
+    def getProcessedTasksCounter(self):
+        processedCount = self.counter
+        self.counter = 0
+        if processedCount > self.max_counter:
+            self.max_counter = processedCount
+        return (processedCount, self.max_counter)
 
     def stop(self):
         print '[*] Stopping consumer'
@@ -40,13 +48,14 @@ class Sender(Thread):
         print 'closed channel'
 
 class Consumer(Thread):
-    def __init__(self, mqQueue, pQueue):
+    def __init__(self, mqQueue, pQueue = None, funct = None):
         super(Consumer, self).__init__()
         self.name = 'mqInChannelThread'
         self.mqQueue = mqQueue
         self.daemon = True
         self.active = True
         self.in_process_queue = pQueue
+        self.funct = funct
 
     def run(self):
         counter = 0
@@ -56,14 +65,20 @@ class Consumer(Thread):
                 message = self.mqQueue.get(acknowledge=False)
                 if message: # sometimes message is None... to check rabbitpy issues
                     counter += 1
-                    try:
-                        self.in_process_queue.put(message.body)
-                    except IOError:
-                        self.active = False
-                        break
-                    if counter == 1000:
-                        print datetime.now(), self.in_process_queue.qsize(), 'mqsize' ,len(self.mqQueue)
-                        counter = 0
+                    if self.in_process_queue:
+                        try:
+                            self.in_process_queue.put(message.body)
+                        except IOError:
+                            self.active = False
+                            break
+                        if counter == 1000:
+                            print datetime.now(), self.in_process_queue.qsize(), 'mqsize', len(self.mqQueue)
+                            counter = 0
+                    else:
+                        self.funct(message.body)
+
+    def getMQSize(self):
+        return len(self.mqQueue)
 
     def stop(self):
         print '[*] Stopping consumer'
@@ -213,3 +228,33 @@ class Factory(object):
         for w in self.workers:
             w.join(1)
             print w.name, " joined"
+
+    def gatherStats(self, interval):
+        stats = tools.Stats()
+        stats.interval = interval
+        stats.worker_count = len(self.workers)
+        stats.worker_alive = self._getAliveCount(self.workers)
+        stats.consumers_count = len(self.consumers)
+        stats.consumers_alive = self._getAliveCount(self.consumers)
+        stats.senders_count = len(self.senders)
+        stats.senders_alive = self._getAliveCount(self.senders)
+        stats.input_queue_size = self.consumers[0].getMQSize()
+        stats.throughput, stats.max_throughput = self._getProcessedTasksAmount()
+        stats.last_update_time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+        return stats
+
+    def _getAliveCount(self, elemList):
+        counter = 0
+        for worker in elemList:
+            if worker.is_alive():
+                counter += 1
+        return counter
+
+    def _getProcessedTasksAmount(self):
+        count = 0
+        max_count = 0
+        for s in self.senders:
+            c, m  = s.getProcessedTasksCounter()
+            count += c
+            max_count += m
+        return count, max_count
