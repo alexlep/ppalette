@@ -32,6 +32,26 @@
     .row {
       margin: 0;
     }
+    .bg-error {
+      background-color: #E44424;
+      height: 100%;
+    }
+    .bg-warn {
+      background-color: #FFE658;
+      height: 100%;
+    }
+    .bg-ok {
+      background-color: #118C4E;
+      height: 100%;
+    }
+    .bg-info {
+      background-color: #23b7e5;
+      height: 100%;
+    }
+    .bg-panel {
+      background-color: #e4eaec;
+      border: 1px solid #e4eaec;
+    }
 </style>
 
 {% endblock %}
@@ -39,21 +59,66 @@
 
 {% block body %}
   <div class="row">
-    <div class="panel panel-default">
-      <div class="panel-heading"><a id="refresh2" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks status</div>
-      <div class="panel-body">
-        <a href="#" class="btn btn-info btn-lg" role="button"><span class="glyphicon glyphicon-info-sign"></span> <br/>{{status.checks_active}} Checks </a>
-        <a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a>
-        <a href="#" class="btn btn-warning btn-lg" role="button"><span class="glyphicon glyphicon-question-sign"></span> <br/>{{status.checks_warn_count}} Warnings</a>
-        <a href="#" class="btn btn-success btn-lg" role="button"><span class="glyphicon glyphicon-ok-sign"></span> <br/>{{status.checks_ok_count}} OK</a>
+    <div class="col-md-4 bg-panel col-height">
+      <div class="row bg-panel">
+          <div class="panel-heading"><a id="refresh2" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks status</div>
+          <div class="col-xs-5">
+            <div class="panel panel-default">
+              <div class="panel-body bg-info text-center">
+                {{status.checks_active}}<br/>Checks
+                <!-- a href="#" class="btn btn-info btn-lg" role="button"><span class="glyphicon glyphicon-info-sign"></span> <br/>{{status.checks_active}} Checks </a-->
+              </div>
+            </div>
+          </div>
+          <div class="col-xs-5">
+            <div class="panel panel-default">
+              <div class="panel-body bg-ok text-center">
+                {{status.checks_ok_count}}<br/>OK
+                <!-- a href="#" class="btn btn-success btn-lg" role="button"><span class="glyphicon glyphicon-ok-sign"></span> <br/>{{status.checks_ok_count}} OK</a-->
+              </div>
+            </div>
+          </div>
+          <div class="col-xs-5">
+            <div class="panel panel-default">
+              <div class="panel-body bg-warn text-center">
+                {{status.checks_warn_count}}<br/>Warnings
+                <!-- a href="#" class="btn btn-warning btn-lg" role="button"><span class="glyphicon glyphicon-question-sign"></span> <br/>{{status.checks_warn_count}} Warnings</a-->
+              </div>
+            </div>
+          </div>
+          <div class="col-xs-5">
+            <div class="panel panel-default">
+              <div class="panel-body bg-error text-center">
+                {{status.checks_err_count}}<br/>Errors
+                <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
+              </div>
+            </div>
+          </div>
+          <div class="panel-heading">Overall Health Status</div>
+          <div class="col-xs-5">
+            <div class="panel panel-default">
+              <div class="panel-body bg-error text-center">
+                {{status.checks_err_count}}<br/>Errors
+                <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
+              </div>
+            </div>
+          </div>
+          <div class="col-xs-5">
+            <div class="panel panel-default">
+              <div class="panel-body bg-error text-center">
+                {{status.checks_err_count}}<br/>Errors
+                <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
+              </div>
+            </div>
+          </div>
       </div>
     </div>
-    <div class="panel panel-default">
-      <div class="panel-heading"><a id="refresh2" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks status - {{status.checks_active}} active checks</div>
-      <div class="panel-body">
-        <a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a>
-        <a href="#" class="btn btn-warning btn-lg" role="button"><span class="glyphicon glyphicon-question-sign"></span> <br/>{{status.checks_warn_count}} Warnings</a>
-        <a href="#" class="btn btn-success btn-lg" role="button"><span class="glyphicon glyphicon-ok-sign"></span> <br/>{{status.checks_ok_count}} OK</a>
+    <div class="col-md-5">
+      <div class="row bg-panel">
+        <div class="panel bg-panel">
+          <div class="panel-heading bg-panel"><a id="refresh3" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks chart</div>
+          <img src='https://images.duckduckgo.com/iu/?u=http%3A%2F%2Fmaxcdn.webappers.com%2Fimg%2F2012%2F02%2Fjavascript-chart.png&f=1' />
+        </div>
       </div>
     </div>
   </div>

@@ -2,6 +2,7 @@
 import sys
 from core.models import Host, Subnet, Plugin, History, Suite, Status #bcrypt, Schedule
 from core.database import init_db, db_session
+from core.monitoring import RRD
 from flask import flash, jsonify
 from flask_admin import Admin, BaseView, AdminIndexView, expose
 from flask_admin.actions import action
@@ -10,6 +11,7 @@ from flask_admin.contrib import sqla
 from wtforms import BooleanField, TextField, PasswordField, validators
 from sqlalchemy.sql.functions import now
 from core.tools import getUniqueID, draftClass, fromDictToJson
+from glob import glob
 
 if not init_db(create_tables=False):
     print "Service is unable to connect to DB. Check if DB service is running. Aborting."
@@ -197,6 +199,9 @@ class DashBoardView(AdminIndexView):
 class AjaxCallVioletHeartBeats(BaseView):
     @expose('/')
     def index(self):
+        for elem in glob('*.rrd'):
+            webif.Scheduler.Violets[elem] = RRD(elem).getChartData()
+        #return webif.Scheduler.Violets
         return jsonify(**webif.Scheduler.Violets)
 
     def is_visible(self):

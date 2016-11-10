@@ -7,7 +7,7 @@ from ipaddress import IPv4Network
 
 from core.tools import draftClass, parseConfig, initLogging, Message, prepareDictFromSQLA, Stats, fromJSONtoDict
 from mq import MQ
-from core.processing import Consumer
+#from core.processing import Consumer
 from models import Plugin, Host, Suite, Subnet
 from database import init_db, db_session
 
@@ -23,12 +23,10 @@ class Scheduler(BackgroundScheduler):
         self.log = initLogging(self.config.log, __name__)
         self.MQ = MQ(self.config.queue, self.log) # init MQ
         self.mqCommonJobsOutChannel = self.MQ.initOutRabbitPyChannel() # to violet
-        self.Consumer = Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.monitoring_inqueue), funct = self._updateStats) # statistics from violets, monitoring_inqueue
         self.fillSchedule()
         self.Violets = dict()
 
     def startRedService(self):
-        self.Consumer.start()
         self.start()
 
     def _prepareStartTime(self, delta):

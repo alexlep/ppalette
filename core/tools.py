@@ -6,6 +6,7 @@ import json
 import uuid
 import socket
 import datetime as dt
+import time
 #from datetime import datetime
 from sshexecutor import SSHConnection
 
@@ -31,6 +32,31 @@ class Stats(object):
         if fromJSON:
             data = json.loads(data)
         self.__dict__.update(data)
+        self.data_sources, self.data_values = self.getDataSources()
+
+    def getDataSources(self):
+        keys = self.__dict__.keys()
+        keys.sort()
+        data_sources = list()
+        data_values = list()
+        for key in keys:
+            try:
+                int(self.__dict__[key])
+                data_sources.append(key)
+                data_values.append(str(self.__dict__[key]))
+            except:
+                pass
+        return (data_sources, data_values)
+
+    def getRRDDataSourcesList(self):
+        return [ "DS:{0}:GAUGE:{1}:0:1000000".format(elem, self.interval) for elem in self.data_sources]
+
+    def getDataSourcesString(self):
+        return str(":".join(self.data_sources))
+
+    def getDataValuesString(self):
+        stime = str(int(time.mktime(dt.datetime.strptime(self.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())))
+        return "{0}:{1}".format(str(stime), ":".join(self.data_values))
 
     def tojson(self):
         return json.dumps(self.__dict__)

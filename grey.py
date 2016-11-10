@@ -5,7 +5,11 @@ from core.models import Status, History, Subnet, Host
 from datetime import datetime
 from sqlalchemy import update, insert, and_
 from core.mq import MQ
-from core.tools import parseConfig, initLogging, getUniqueID, Message
+from core.tools import parseConfig, initLogging, getUniqueID, Message, Stats
+from core.processing import Consumer
+import time
+from core.monitoring import RRD
+from glob import glob
 
 init_db(False)
 workingDir = os.path.dirname(os.path.abspath(__file__))
@@ -17,17 +21,24 @@ class Grey(object):
         self.config = parseConfig(configFile)
         self.log = initLogging(self.config.log, __name__) # init logging
         self.MQ = MQ(self.config.queue, self.log)
-        self.inQueue = self.MQ.initInRabbitPyQueue()
+        #self.inQueue = self.MQ.initInRabbitPyQueue()
+        self.consumers = [Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.inqueue), funct = self.callback) for _ in range(self.config.consumer_amount)]
+        self.monitoringConsumer = Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.monitoring_inqueue), funct = self._updateStats) # statistics from violets, monitoring_inqueue
 
     def startConsumer(self):
+        for c in self.consumers:
+            c.start()
+        self.monitoringConsumer.start()
         while True:
-            if len(self.inQueue) > 0:
-                message = self.inQueue.get(acknowledge=False)
-                self.callback(message.body)
+            time.sleep(1)
+
+    def destroy(self):
+        for c in self.consumers:
+            c.join()
 
     def callback(self, body):
         msg = Message(body, fromJSON = True)
-        print msg.scheduled_time
+        #print msg.scheduled_time
         if msg.type == 'check':
             msg.time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")
             msg.scheduled_time = datetime.strptime(msg.scheduled_time, "%H:%M:%S:%d:%m:%Y")
@@ -38,6 +49,22 @@ class Grey(object):
             if msg.action == 'discovery':
                 self.log.info(self.tryAddingNewHost(msg))
 
+    def _updateStats(self, data):
+        stats = Stats(data, fromJSON = True)
+        myrrd = RRD("{}.rrd".format(stats.identifier))
+        myrrd.insertValues(stats)
+        '''
+        if stats.identifier not in self.Violets.keys():
+            stats.setConnectionTime()
+            self.Violets[stats.identifier] = stats.__dict__
+        else:
+            self.Violets[stats.identifier].update(stats.__dict__)
+        for v in self.Violets.values():
+            try: # PYTHON bug here, strptime in threads
+                v.performChecks()
+            except:
+                pass
+        '''
     def updateStatusTable(self, msg):
         updateQ = Status.__table__.update().where(and_(Status.plugin_id==msg.pluginid, Status.host_id==msg.hostid)).\
             values(last_status=msg.output, last_exitcode = msg.exitcode,
@@ -53,7 +80,7 @@ class Grey(object):
                                         last_check_run = msg.time,
                                         interval = msg.interval)
             db_session.execute(insertQ)
-        print msg.details
+        #print msg.details
         db_session.commit()
         return
 
@@ -92,4 +119,5 @@ try:
     GreyApp.startConsumer()
 except KeyboardInterrupt:
     print ("ABORTING GREY LISTENER")
+    #GreyApp.destroy()
     db_session.close()
