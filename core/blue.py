@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
 import sys
-from core.models import Host, Subnet, Plugin, History, Suite, Status #bcrypt, Schedule
-from core.database import init_db, db_session
-from core.monitoring import RRD
-from flask import flash, jsonify
+import datetime as dt
+
+from flask import flash
 from flask_admin import Admin, BaseView, AdminIndexView, expose
 from flask_admin.actions import action
 from flask_admin.babel import ngettext
 from flask_admin.contrib import sqla
 from wtforms import BooleanField, TextField, PasswordField, validators
 from sqlalchemy.sql.functions import now
+
+from core.models import Host, Subnet, Plugin, History, Suite, Status #bcrypt, Schedule
+from core.database import init_db, db_session
+from core.monitoring import RRD
 from core.tools import getUniqueID, draftClass, fromDictToJson
-from glob import glob
 
 if not init_db(create_tables=False):
     print "Service is unable to connect to DB. Check if DB service is running. Aborting."
@@ -167,45 +169,7 @@ class DashBoardView(AdminIndexView):
     @expose('/')
     def index(self):
         status = draftClass()
-        status.hosts_active = db_session.query(Host.id).filter(Host.maintenance == False).count()
-        status.hosts_count = db_session.query(Host.id).count()
-        status.hosts_active_reachable = db_session.query(Host.id).join((Status, Host.stats)).\
-                                join((Plugin, Status.plugin)).\
-                                filter(Host.maintenance == False, Status.last_exitcode == 0, Plugin.script == 'check_ping').\
-                                count()
-        status.checks_active = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Host.maintenance == False).\
-                                count()
-        status.checks_count = db_session.query(Plugin.id).\
-                                join((Suite, Plugin.suites)).\
-                                join((Host, Suite.host)).\
-                                count()
-        status.checks_ok_count = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Status.last_exitcode == 0, Host.maintenance == False).\
-                                count()
-        status.checks_warn_count = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Status.last_exitcode == 1, Host.maintenance == False).\
-                                count()
-        status.checks_err_count = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Status.last_exitcode == 2, Host.maintenance == False).\
-                                count()
-        return self.render('dashboard.html', status = status, violetstats = webif.Scheduler.Violets)
-
-
-class AjaxCallVioletHeartBeats(BaseView):
-    @expose('/')
-    def index(self):
-        for elem in glob('*.rrd'):
-            webif.Scheduler.Violets[elem] = RRD(elem).getChartData()
-        #return webif.Scheduler.Violets
-        return jsonify(**webif.Scheduler.Violets)
-
-    def is_visible(self):
-        return False
+        return self.render('dashboard.html', status = status)
 
 webif = Admin(name='blue', template_mode='bootstrap3', index_view=DashBoardView(name='Dashboard', url='/'))
 #webif = Admin(name='blue', template_mode='bootstrap3', index_view=DashBoardView(name='Dashboard', url='/', menu_icon_type='glyph', menu_icon_value='glyphicon-home'))
@@ -215,4 +179,5 @@ webif.add_view(PluginView(Plugin, db_session, name="Plugins")) #, category="Conf
 webif.add_view(SuiteView(Suite, db_session, name="Suites")) #, category="Configuration"))
 webif.add_view(HostView(Host, db_session, name="Hosts", endpoint="hosts")) #, category="Configuration"))
 webif.add_view(SubnetView(Subnet, db_session, name="Subnets")) #, category="Configuration"))
-webif.add_view(AjaxCallVioletHeartBeats(name="Ajax")) #, category="Configuration"))
+#webif.add_view(AjaxCallCommonHeartBeats(name="AjaxCallCommonHeartBeats")) #, category="Configuration"))
+#webif.add_view(AjaxCallVioletHeartBeats(name="AjaxCallVioletHeartBeats")) #, category="Configuration"))

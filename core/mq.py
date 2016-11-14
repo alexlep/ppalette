@@ -8,6 +8,7 @@ class MQ(object):
         self.pyurl = 'amqp://guest:guest@{0}:5672/%2F'.format(self.config.host)
         try:
             self.PyConnection = rabbitpy.Connection(self.pyurl)
+            #print self.PyConnection.server_properties
         except RuntimeError:
             logger.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."

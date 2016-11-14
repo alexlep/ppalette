@@ -31,18 +31,24 @@
         }
         .main {
           position: relative !important;
-          margin: 0px 0px 0px 160px;
-          padding: 15px;
+          /*margin: 0px 0px 0px 160px;*/
+          padding: 15px 0;
           background-color: #f3f3f4;
+        }
+        .main .row {
+          margin: 0;
         }
         .full_width {
           width: 100%;
         }
         .header {
           height: 40px;
+          background-color: #2196f3;
         }
         .navbar-brand {
           padding : 10px 15px;
+          text-shadow: none;
+          color: #fff;
         }
         .model-list {
           font-size: 12px;
@@ -57,13 +63,19 @@
         .navbar-collapse li .active a {
           font-weight: bold;
         }
-        .page-header{
-          padding: 0;
+        .page-header {
+          padding: 0 15px;
           margin: 10px 0 10px;
+          border-bottom: 0px;
         }
         .page-header h3 {
-          padding: 0;
           margin: 0 0 10px;
+        }
+        .nav li a {
+          padding: 10px 20px;
+        }
+        .bottom-margin {
+          margin-bottom: 20px;
         }
         </style>
     {% endblock %}
@@ -75,16 +87,21 @@
   <body>
     {% block page_body %}
     <div class="container-fluid">
-      <div class="header full_width">
-        <div class="navbar-header">
-          {% block brand %}
-          <a class="navbar-brand" href="#">{{ admin_view.admin.name }}</a>
-          {% endblock %}
+      <div class="col-md-12 header">
+        <div class="col-xs-10">
+          <div class="navbar-header">
+            {% block brand %}
+            <a class="navbar-brand" href="#">{{ admin_view.admin.name }}</a>
+            {% endblock %}
+          </div>
         </div>
+        <div class="col-xs-1">---</div>
+        <div class="col-xs-1">---</div>
       </div>
       <!--nav class="navbar navbar-default" role="navigation" -->
-      <div class="navbar-static-side">
-      <nav class="navbar" role="navigation">
+      <div class="row">
+        <div class="col-md-2 no-margin">
+          <nav class="navbar" role="navigation">
         <!-- Brand and toggle get grouped for better mobile display -->
 
         <!-- navbar content -->
@@ -105,8 +122,8 @@
             {% block access_control %}
             {% endblock %}
           </div>
-      </nav>
-    </div>
+          </nav>
+        </div>
 
       {% block messages %}
       {{ layout.messages() }}
@@ -114,11 +131,16 @@
 
       {# store the jinja2 context for form_rules rendering logic #}
       {% set render_ctx = h.resolve_ctx() %}
-      <div class='main'>
-        <div class='page-header'>
-          <H3>{{ admin_view.name }}</h3>
+      <div class='col-md-10'>
+        <div class='main'>
+          <div class='page-header'>
+            <H3>{{ admin_view.name }}</h3>
+          </div>
+        <div class="row">
+        {% block body %}{% endblock %}
+      </div>
         </div>
-      {% block body %}{% endblock %}
+      </div>
     </div>
     </div>
     {% endblock %}

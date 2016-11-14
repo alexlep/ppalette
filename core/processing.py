@@ -3,8 +3,11 @@ import signal
 from threading import Thread
 from multiprocessing import Process, Manager
 from datetime import datetime
+
 import tools
 from rabbitpy import Message
+from monitoring import Stats
+import time
 
 class Sender(Thread):
     def __init__(self, mqChannel, mqQueue, pQueue):
@@ -230,7 +233,7 @@ class Factory(object):
             print w.name, " joined"
 
     def gatherStats(self, interval):
-        stats = tools.Stats()
+        stats = Stats()
         stats.interval = interval
         stats.worker_count = len(self.workers)
         stats.worker_alive = self._getAliveCount(self.workers)

@@ -1,17 +1,14 @@
 # -*- coding: utf-8 -*-
 import sys, os
 from datetime import datetime, timedelta
-from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from ipaddress import IPv4Network
 
-from core.tools import draftClass, parseConfig, initLogging, Message, prepareDictFromSQLA, Stats, fromJSONtoDict
+from core.tools import parseConfig, initLogging, Message, prepareDictFromSQLA
 from mq import MQ
-#from core.processing import Consumer
 from models import Plugin, Host, Suite, Subnet
 from database import init_db, db_session
-
-import json
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
@@ -26,6 +23,9 @@ class Scheduler(BackgroundScheduler):
         self.fillSchedule()
         self.Violets = dict()
 
+    def updateMonitoring(self):
+        pass
+
     def startRedService(self):
         self.start()
 
@@ -33,19 +33,6 @@ class Scheduler(BackgroundScheduler):
         startDelay = timedelta(0, delta)
         initTime = datetime.now()
         return initTime + startDelay
-
-    def _updateStats(self, data):
-        stats = Stats(data, fromJSON = True)
-        if stats.identifier not in self.Violets.keys():
-            stats.setConnectionTime()
-            self.Violets[stats.identifier] = stats.__dict__
-        else:
-            self.Violets[stats.identifier].update(stats.__dict__)
-        for v in self.Violets.values():
-            try: # PYTHON bug here, strptime in threads
-                v.performChecks()
-            except:
-                pass
 
     def fillSchedule(self):
         self.remove_all_jobs()
