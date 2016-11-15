@@ -51,6 +51,11 @@
          background-color: #8bc34a !important;
          height: 100%;
        }
+       .bg-white {
+         background-color: #fff !important;
+         height: 10%;
+         min-height: 10%;
+       }
        .bg-info {
          background-color: #00bcd4 !important;
          height: 100%;
@@ -58,6 +63,12 @@
        .bg-panel {
          background-color: #edecec;
          border: 0;
+       }
+       .bg-panel a:hover {
+         text-decoration: none;
+       }
+       .bg-panel a:hover span {
+         color: #e0e0e0;
        }
        .bg-panel-body {
          padding: 0 15px;
@@ -67,7 +78,7 @@
          height: 100%;
        }
        .bg-graph-body {
-         height: 290px;
+         height: 296px;
        }
        .bg-panel .count {
          color: #eee;
@@ -107,7 +118,7 @@
 <!-- div class="col-md-6"-->
 
 {% block body %}
-    <div class="col-md-12 bottom_margin">
+    <div class="col-md-12 no-side-padding bottom_margin">
       <div class="panel bg-panel">
         <div class="panel-heading"><a id="refresh1" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Checks status</div>
         <div class="panel-body bg-panel-body">
@@ -116,54 +127,48 @@
             <div class="col-xs-6 small-side-padding">
               <div class="panel tile-panel bg-info small-block text-center">
                 <div class="panel-body">
-                  <span id="checks_active" class="count">---</span><br />
-                  <span class="type">Checks</span>
-                  <!-- a href="#" class="btn btn-info btn-lg" role="button"><span class="glyphicon glyphicon-info-sign"></span> <br/>{{status.checks_active}} Checks </a-->
+                  <a href="#"><span id="checks_active" class="count">---</span><br />
+                  <span class="type">Checks</span></a>
                 </div>
               </div>
             </div>
             <div class="col-xs-6 small-side-padding">
               <div class="panel tile-panel bg-ok small-block text-center">
                 <div class="panel-body">
-                  <span id="checks_ok" class="count">----</span><br />
-                  <span class="type">OK</span>
-                  <!-- a href="#" class="btn btn-success btn-lg" role="button"><span class="glyphicon glyphicon-ok-sign"></span> <br/>{{status.checks_ok_count}} OK</a-->
+                  <a href="#"><span id="checks_ok" class="count">----</span><br />
+                  <span class="type">OK</span></a>
                 </div>
               </div>
             </div>
             <div class="col-xs-6 small-side-padding">
               <div class="panel tile-panel bg-warn small-block text-center">
                 <div class="panel-body">
-                  <span id="checks_warn" class="count">---</span><br />
-                  <span class="type">Warnings</span>
-                  <!-- a href="#" class="btn btn-warning btn-lg" role="button"><span class="glyphicon glyphicon-question-sign"></span> <br/>{{status.checks_warn_count}} Warnings</a-->
+                  <a href="#"><span id="checks_warn" class="count">---</span><br />
+                  <span class="type">Warnings</span></a>
                 </div>
               </div>
             </div>
             <div class="col-xs-6 small-side-padding">
               <div class="panel tile-panel bg-error small-block text-center">
                 <div class="panel-body">
-                    <span id="checks_error" class="count">---</span><br />
-                    <span class="type">Errors</span>
-                  <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
+                    <a href="#"><span id="checks_error" class="count">---</span><br />
+                    <span class="type">Errors</span></a>
+                </div>
+              </div>
+            </div>
+            <div class="col-xs-6 small-side-padding">
+              <div class="panel tile-panel bg-ok small-block text-center">
+                <div class="panel-body">
+                    <span id="ok_percent" class="count">---</span><br />
+                    <span class="type">OK</span>
                 </div>
               </div>
             </div>
             <div class="col-xs-6 small-side-padding">
               <div class="panel tile-panel bg-error small-block text-center">
                 <div class="panel-body">
-                    <span class="count">---</span><br />
-                    <span class="type">Errors</span>
-                  <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
-                </div>
-              </div>
-            </div>
-            <div class="col-xs-6 small-side-padding">
-              <div class="panel tile-panel bg-error small-block text-center">
-                <div class="panel-body">
-                    <span class="count">---</span><br />
-                    <span class="type">Errors</span>
-                  <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
+                    <span id="error_percent" class="count">---</span><br />
+                    <span class="type">Failed</span>
                 </div>
               </div>
             </div>
@@ -173,8 +178,7 @@
           <div class="panel tile-panel bg-graph">
             <div class="panel-body no-side-padding bg-graph-body">
               <div class="ct-chart">
-                      </div>
-              <!-- a href="#" class="btn btn-danger btn-lg" role="button"><span class="glyphicon glyphicon-exclamation-sign"></span> <br/>{{status.checks_err_count}} Errors </a -->
+              </div>
             </div>
           </div>
         </div>
@@ -184,7 +188,7 @@
 </div>
   </div>
   <div class="row bottom-margin">
-    <div class="col-md-12">
+    <div class="col-md-12 no-side-padding">
       <div class="panel bg-panel">
         <div class="panel-heading"><a id="refresh2" class="pull-right" href="#"><span class="glyphicon glyphicon-refresh"></span></a>Violet Instances connected</div>
         <div class="panel-body panel-refresh">
@@ -251,8 +255,8 @@ $.fn.customStatsAll = function () {
              var options = {
                showPoint: true,
                lineSmooth: true,
-               height: 260,
                seriesBarDistance: 10,
+               height: 260,
                plugins: [
                  Chartist.plugins.tooltip()
                ],
@@ -276,17 +280,18 @@ $.fn.customStatsAll = function () {
         });
       };
 
-$.fn.customStatsLast = function (par) {
+$.fn.customStatsLast = function () {
                  $.ajax({
                    type: "GET",
                    url: '{{ url_for('blueapi_blueprint.getCustomStats', _external = True, period = "last") }}',
                    dataType: 'json',
                    success: function(data) {
-                      //alert(data);
                       $('#checks_active').text(data.ds.checks_active);
                       $('#checks_ok').text(data.ds.checks_ok);
                       $('#checks_warn').text(data.ds.checks_warn);
                       $('#checks_error').text(data.ds.checks_error);
+                      $('#ok_percent').text(Math.ceil((data.ds.checks_ok*100)/data.ds.checks_active) + "%");
+                      $('#error_percent').text(Math.ceil((data.ds.checks_error*100)/data.ds.checks_active) + "%");
                    },
                    error: function(e)
                    {
@@ -298,16 +303,11 @@ $.fn.customStatsLast = function (par) {
 $(document).ready(function(){
 
   $('#refresh1').refreshMe({
-    function1:function(par){$.fn.customStatsLast(par)},
+    function1:function(){$.fn.customStatsLast()},
   	function2:function(){$.fn.customStatsAll()}
   });
 
   $('#refresh1').click();
-
-/*************************************************************************************/
-
-/*************************************************************************************/
-
 
 });
 </script>

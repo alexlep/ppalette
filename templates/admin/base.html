@@ -31,8 +31,7 @@
         }
         .main {
           position: relative !important;
-          /*margin: 0px 0px 0px 160px;*/
-          padding: 15px 0;
+          padding: 15px 15px;
           background-color: #f3f3f4;
         }
         .main .row {
@@ -124,11 +123,6 @@
           </div>
           </nav>
         </div>
-
-      {% block messages %}
-      {{ layout.messages() }}
-      {% endblock %}
-
       {# store the jinja2 context for form_rules rendering logic #}
       {% set render_ctx = h.resolve_ctx() %}
       <div class='col-md-10'>
@@ -136,6 +130,9 @@
           <div class='page-header'>
             <H3>{{ admin_view.name }}</h3>
           </div>
+          {% block messages %}
+          {{ layout.messages() }}
+          {% endblock %}
         <div class="row">
         {% block body %}{% endblock %}
       </div>

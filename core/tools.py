@@ -11,25 +11,25 @@ import time
 from sshexecutor import SSHConnection
 
 class Message(object):
-    type = ""
-    action = ""
-    suite_id = ""
-    scheduled_time = ""
-    script = ""
-    plugin_id = 0
-    pluginUUID = ""
-    params = ""
-    host_id = 0
-    hostUUID = ""
-    hostname = ""
-    ipaddress = ""
-    interval = 0
-    ssh_wrapper = False
-    login = ""
-    output = ""
-    exitcode = -1
-    time = ""
-    executor = ""
+    type = None
+    action = None
+    suite_id = None
+    scheduled_time = None
+    script = None
+    plugin_id = None
+    pluginUUID = None
+    params = None
+    host_id = None
+    hostUUID = None
+    hostname = None
+    ipaddress = None
+    interval = None
+    ssh_wrapper = None
+    login = None
+    output = None
+    exitcode = None
+    time = None
+    executor = None
     def __init__ (self, data = dict(), fromJSON = False):
         if fromJSON:
             data = json.loads(data)

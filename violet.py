@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-import sys, os, signal, time
+import sys
+import os
+import signal
+import time
 from core.mq import MQ
 from core.processing import Factory, Sender, Consumer
 from core.tools import draftClass, parseConfig, initLogging, getUniqueID
-#from apscheduler.schedulers.background import BackgroundScheduler
 
 workingDir = os.path.dirname(os.path.abspath(__file__))
 violetConfig = workingDir + '/config/violet_config.json'
@@ -23,7 +25,6 @@ class Violet(object):
                                     ssh_config = self.config.ssh)
         self._prepareConsumers() # separate consumer thread
         self._prepareSenders() # separate sender thread
-        #self.MonitoringScheduler = self._initScheduler()
 
     def __call__(self, signum, frame):
         print 'sigint captured'
@@ -47,7 +48,6 @@ class Violet(object):
 
     def startProcesses(self):
         self.factory.startWork()
-        #self.MonitoringScheduler.start()
         while True:
             time.sleep(self.config.heartbeat_interval)
             self._sendStats(self.config.heartbeat_interval)

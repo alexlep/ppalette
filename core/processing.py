@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import signal
 from threading import Thread
 from multiprocessing import Process, Manager
 from datetime import datetime
@@ -7,7 +6,6 @@ from datetime import datetime
 import tools
 from rabbitpy import Message
 from monitoring import Stats
-import time
 
 class Sender(Thread):
     def __init__(self, mqChannel, mqQueue, pQueue):
@@ -29,9 +27,6 @@ class Sender(Thread):
                 message = Message(self.mqChannel, msg)
                 message.publish('', self.mqQueue)
                 self.counter += 1
-                #if self.counter == 1000:
-                    #print datetime.now(), self.name, 'processed count  1000 reached'
-                    #counter = 0
             except EOFError:
                 print self.name, 'IOERROR, expected'
                 self.active = False

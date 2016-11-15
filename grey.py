@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import sys, os
+import sys
+import os
+import time
 from core.database import init_db, db_session
 from core.models import Status, History, Subnet, Host, Suite, Plugin
 from datetime import datetime
@@ -7,9 +9,7 @@ from sqlalchemy import update, insert, and_
 from core.mq import MQ
 from core.tools import parseConfig, initLogging, getUniqueID, Message
 from core.processing import Consumer
-import time
 from core.monitoring import RRD, Stats, CommonStats
-from glob import glob
 
 init_db(False)
 workingDir = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +39,6 @@ class Grey(object):
 
     def callback(self, body):
         msg = Message(body, fromJSON = True)
-        #print msg.scheduled_time
         if msg.type == 'check':
             msg.time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")
             msg.scheduled_time = datetime.strptime(msg.scheduled_time, "%H:%M:%S:%d:%m:%Y")
@@ -69,7 +68,6 @@ class Grey(object):
                                 join((Plugin, Status.plugin)).\
                                 filter(Host.maintenance == False, Status.last_exitcode == 0, Plugin.script == 'check_ping').\
                                 count()
-        start1 = time.time()
         status.checks_active = db_session.query(Status.id).\
                                 join((Host, Status.host)).\
                                 filter(Host.maintenance == False).\
@@ -90,9 +88,6 @@ class Grey(object):
                                 join((Host, Status.host)).\
                                 filter(Status.last_exitcode == 2, Host.maintenance == False).\
                                 count()
-        print 'First Method: ', time.time() - start1
-        print status.__dict__
-        status.updateDataSources()
         RRD(self.rrdCommon).insertValues(status)
         '''
         if stats.identifier not in self.Violets.keys():
@@ -130,7 +125,6 @@ class Grey(object):
 
     def updateHistory(self, msg):
         h = History(msg)
-        #h.insertValues(msg)
         db_session.add(h)
         db_session.commit()
         return

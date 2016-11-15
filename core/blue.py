@@ -168,8 +168,7 @@ class HistoryView(sqla.ModelView):
 class DashBoardView(AdminIndexView):
     @expose('/')
     def index(self):
-        status = draftClass()
-        return self.render('dashboard.html', status = status)
+        return self.render('dashboard.html')
 
 webif = Admin(name='blue', template_mode='bootstrap3', index_view=DashBoardView(name='Dashboard', url='/'))
 #webif = Admin(name='blue', template_mode='bootstrap3', index_view=DashBoardView(name='Dashboard', url='/', menu_icon_type='glyph', menu_icon_value='glyphicon-home'))
@@ -179,5 +178,3 @@ webif.add_view(PluginView(Plugin, db_session, name="Plugins")) #, category="Conf
 webif.add_view(SuiteView(Suite, db_session, name="Suites")) #, category="Configuration"))
 webif.add_view(HostView(Host, db_session, name="Hosts", endpoint="hosts")) #, category="Configuration"))
 webif.add_view(SubnetView(Subnet, db_session, name="Subnets")) #, category="Configuration"))
-#webif.add_view(AjaxCallCommonHeartBeats(name="AjaxCallCommonHeartBeats")) #, category="Configuration"))
-#webif.add_view(AjaxCallVioletHeartBeats(name="AjaxCallVioletHeartBeats")) #, category="Configuration"))

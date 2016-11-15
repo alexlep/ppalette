@@ -4,62 +4,52 @@ import time
 import os.path
 import rrdtool
 import json
-from copy import deepcopy
 from tools import draftClass
+import inspect
 
 class CommonStats(object):
     interval = 60
-    checks_ok = int()
-    checks_warn = int()
-    checks_error = int()
-    checks_all = int()
-    checks_active = int()
-    hosts_all = int()
-    hosts_maintenance = int()
-    hosts_active_up = int()
-
-    def updateDataSources(self):
-        unmonitored_items = ['interval', 'data_sources']
-        self.data_sources = self.__dict__.keys()
-        for item in unmonitored_items:
-            try:
-                self.data_sources.remove(item)
-            except:
-                pass
+    checks_ok = None
+    checks_warn = None
+    checks_error = None
+    checks_all = None
+    checks_active = None
+    hosts_all = None
+    hosts_active_up = None
+    data_sources = ['checks_ok', 'checks_warn',
+                    'checks_error', 'checks_all',
+                    'checks_active', 'hosts_all',
+                    'hosts_active_up']
+    unmonitored_items = ['interval', 'data_sources']
 
 class Stats(object):
-    interval = int()
-    status = int()
-    identifier = str()
-    worker_count = int()
-    worker_alive = int()
-    consumers_count = int()
-    consumers_alive = int()
-    senders_count = int()
-    senders_alive = int()
-    input_queue_size = int()
-    throughput = int()
-    max_throughput = int()
-    connection_time = str()
-    last_update_time = str()
-    ram_used = int()
-    raw_amount = int()
+    interval = None
+    status = None
+    identifier = None
+    worker_count = None
+    worker_alive = None
+    consumers_count = None
+    consumers_alive = None
+    senders_count = None
+    senders_alive = None
+    input_queue_size = None
+    throughput = None
+    max_throughput = None
+    connection_time = None
+    last_update_time = None
+    ram_used = None
+    raw_amount = None
+    data_sources = ['status',
+                    'worker_count', 'worker_alive',
+                    'consumers_count', 'consumers_alive',
+                    'senders_count','senders_alive',
+                    'input_queue_size', 'throughput',
+                    'ram_used','raw_amount']
 
     def __init__ (self, data = dict(), fromJSON = False):
         if fromJSON:
             data = json.loads(data)
         self.__dict__.update(data)
-        self.data_sources = self.getDataSources()
-
-    def getDataSources(self):
-        unmonitored_items = ['interval', 'identifier','last_update_time', 'connection_time', 'data_sources']
-        keys = deepcopy(self.__dict__.keys())
-        for item in unmonitored_items:
-            try:
-                keys.remove(item)
-            except:
-                pass
-        return keys
 
     def tojson(self):
         return json.dumps(self.__dict__)
@@ -136,7 +126,6 @@ class RRD(object):
         common_stats['ds'] = dict()
         common_stats['meta'] = dict()
         stepToGet = 3600 * hours / grades
-        #print "get {0}/{1}".format(rowsToGet, stepToGet)
         raw_stats = [ rrdtool.xport('--maxrows', str(grades),
                                     '--start', 'now-{}h'.format(hours),
                                     '--end', 'now',
@@ -152,11 +141,10 @@ class RRD(object):
         rows = raw_stats[0]['meta']['rows']
         start = raw_stats[0]['meta']['start']
         step = raw_stats[0]['meta']['step']
-        #print "got {0}/{1}".format(rows, step)
-        common_stats['meta']['labels'] = [(dt.datetime.fromtimestamp(start)\
-                                     + dt.timedelta(seconds = step * val))\
-                                     .strftime("%H:%M")\
-                                     for val in range(1, rows-1) ] # first and last ones
+        common_stats['meta']['labels'] = [ (dt.datetime.fromtimestamp(start)\
+                                            + dt.timedelta(seconds = step * val))\
+                                            .strftime("%H:%M")\
+                                            for val in range(1, rows-1) ] # first and last ones
         return common_stats
 
     def prepareValue(self, value):
@@ -180,6 +168,6 @@ class RRD(object):
             stime = str(int(time.mktime(dt.datetime.strptime(params.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())))
         except:
             stime = 'N' # now
-        values = [ str(int(params.__dict__[ds]))
-                  for ds in params.data_sources ]
+        values =   [str(int(params.__dict__[ds]))\
+                    for ds in params.data_sources]
         return "{0}:{1}".format(stime, ":".join(values))
