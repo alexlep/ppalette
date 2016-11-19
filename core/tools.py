@@ -161,7 +161,7 @@ def fromDictToJson(data):
 
 def getUniqueID(short = False):
     if short:
-        identifier = str(uuid.uuid4().fields[-1])[:5]
+        identifier = str(uuid.uuid4().fields[-1])[:8]
     else:
         identifier = str(uuid.uuid4())
     return identifier

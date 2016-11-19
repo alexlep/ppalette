@@ -1,9 +1,9 @@
 {
   "queue" : {
     "host" : "localhost",
-    "port" : "",
-    "user" : "",
-    "pasword" : "",
+    "port" : 5672,
+    "user" : "grey",
+    "password" : "grey",
     "inqueue" : "violetqueue",
     "outqueue" : "",
     "monitoring_inqueue" : "violetstats"

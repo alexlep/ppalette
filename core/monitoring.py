@@ -7,6 +7,9 @@ import json
 from tools import draftClass
 import inspect
 
+VIOLET = 'violet'
+COMMON = 'common'
+
 class CommonStats(object):
     interval = 60
     checks_ok = None
@@ -19,7 +22,8 @@ class CommonStats(object):
     data_sources = ['checks_ok', 'checks_warn',
                     'checks_error', 'checks_all',
                     'checks_active', 'hosts_all',
-                    'hosts_active_up']
+                    'hosts_active_up'
+                    ]
     unmonitored_items = ['interval', 'data_sources']
 
 class Stats(object):
@@ -39,12 +43,11 @@ class Stats(object):
     last_update_time = None
     ram_used = None
     raw_amount = None
-    data_sources = ['status',
-                    'worker_count', 'worker_alive',
+    data_sources = ['worker_count', 'worker_alive',
                     'consumers_count', 'consumers_alive',
                     'senders_count','senders_alive',
                     'input_queue_size', 'throughput',
-                    'ram_used','raw_amount']
+                    ]
 
     def __init__ (self, data = dict(), fromJSON = False):
         if fromJSON:
@@ -74,25 +77,37 @@ class Stats(object):
             self.status = 0
 
 class RRD(object):
-    def __init__(self, filename):
+    def __init__(self, filename, statType = COMMON):
         self.rrd = filename
-        self.commonParamsToMonitor = ['checks_ok', 'checks_warn', 'checks_error', 'checks_active']
-        self.violetParamsToMonitor = ['input_queue_size', 'throughput']
+        if statType == COMMON:
+            self.paramsToMonitor = ['checks_ok',
+                                      'checks_warn',
+                                      'checks_error',
+                                      'checks_active'
+                                      ]
+        elif VIOLET:
+            self.paramsToMonitor = ['input_queue_size',
+                                      'throughput'
+                                      ]
 
     def createFile(self, statdata):
         """
-        Initial timestamp of creation is message time minus message interval, so the first value(update after creating table) could be successful.
-        Otherwise we will get rrd error, because creation timestamp will be equal to first update timestamp.
+        Initial timestamp of creation is message time minus message interval,
+        so the first value(update after creating table) could be successful.
+        Otherwise we will get rrd error, because creation timestamp will be
+        equal to first update timestamp.
         """
         try:
-            start_timestamp = int(time.mktime(dt.datetime.strptime(statdata.last_update_time, "%H:%M:%S:%d:%m:%Y"))) - statdata.interval
-        except:
+            start_timestamp = int(time.mktime(dt.datetime.strptime(statdata.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())) - statdata.interval
+        except Exception as e:
+            print 'oops', e
+            print dir(e)
             start_timestamp = int(time.mktime(dt.datetime.now().timetuple())) - statdata.interval
         args = [self.rrd,
                 "--start", str(start_timestamp),
                 '--step', str(statdata.interval),
                 "RRA:AVERAGE:0.5:1:1440", "RRA:AVERAGE:0.5:60:744"]
-        print statdata.data_sources, statdata.interval
+        print statdata.data_sources, statdata.interval, start_timestamp
         args.extend(self._getDataSourcesRRDList(statdata.data_sources, statdata.interval))
         rrdtool.create(*args)
 
@@ -109,22 +124,10 @@ class RRD(object):
     def getLatestUpdate(self):
         return rrdtool.lastupdate(self.rrd)
 
-    def getVioletChartData(self):
-        return (rrdtool.xport('--maxrows', '40',
-                                                 '--start', 'now-1h', '--end', 'now',
-                                                 '--step', 'now-1h', "DEF:a={0}:{1}:AVERAGE".format(self.rrd, 'input_queue_size'),
-                                                 '--json',
-                                                 'XPORT:a:Amount of messages in input queue (backlog)' ),
-                rrdtool.xport('--maxrows', '40',
-                                           '--start', 'now-1h', '--end', 'now',
-                                           '--step', '900',
-                                           "DEF:a={0}:{1}:AVERAGE".format(self.rrd, 'throughput'),
-                                           '--json',
-                                           'XPORT:a:Throughput of processing messages, per 1 minute' ))
-    def getCommonChartData(self, hours = 6, grades = 10):
-        common_stats = dict()
-        common_stats['ds'] = dict()
-        common_stats['meta'] = dict()
+    def getChartData(self, hours = 6, grades = 10):
+        stats = dict()
+        stats['ds'] = dict()
+        stats['meta'] = dict()
         stepToGet = 3600 * hours / grades
         raw_stats = [ rrdtool.xport('--maxrows', str(grades),
                                     '--start', 'now-{}h'.format(hours),
@@ -132,20 +135,20 @@ class RRD(object):
                                     '--step', str(stepToGet),
                                     "DEF:a={0}:{1}:AVERAGE".format(self.rrd, param),
                                     'XPORT:a:{}'.format(param)) \
-                                    for param in self.commonParamsToMonitor]
+                                    for param in self.paramsToMonitor]
         for elem in raw_stats:
             legend = elem['meta']['legend'][0]
             #{meta: 'description', value: 1 },
             tmp = map(self.prepareValue, elem['data'][1:-1]) # excluding first and last ones
-            common_stats['ds'][legend] = map(lambda x: {'meta':legend,'value':x}, tmp)
+            stats['ds'][legend] = map(lambda x: {'meta':legend,'value':x}, tmp)
         rows = raw_stats[0]['meta']['rows']
         start = raw_stats[0]['meta']['start']
         step = raw_stats[0]['meta']['step']
-        common_stats['meta']['labels'] = [ (dt.datetime.fromtimestamp(start)\
+        stats['meta']['labels'] = [ (dt.datetime.fromtimestamp(start)\
                                             + dt.timedelta(seconds = step * val))\
                                             .strftime("%H:%M")\
                                             for val in range(1, rows-1) ] # first and last ones
-        return common_stats
+        return stats
 
     def prepareValue(self, value):
         """

@@ -2,6 +2,7 @@
 from threading import Thread
 from multiprocessing import Process, Manager
 from datetime import datetime
+import time
 
 import tools
 from rabbitpy import Message
@@ -59,6 +60,7 @@ class Consumer(Thread):
         counter = 0
         print "ololo"
         while self.active:
+            time.sleep(0.01)
             if len(self.mqQueue) > 0:
                 message = self.mqQueue.get(acknowledge=False)
                 if message: # sometimes message is None... to check rabbitpy issues

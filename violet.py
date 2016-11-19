@@ -12,10 +12,10 @@ violetConfig = workingDir + '/config/violet_config.json'
 
 class Violet(object):
     def __init__(self, configFile):
-        self.identifier = getUniqueID(short = True)
         self.config = parseConfig(configFile)
         self.log = initLogging(self.config.log) # init logging
         self.MQ = MQ(self.config.queue, self.log)
+        self.identifier = self.MQ.PyConnection._channel0.client_properties['connection_id']
         self.senderStatsChannel = self.MQ.initOutRabbitPyChannel(self.config.queue.monitoring_outqueue)
         self.checks = self.preparePluginDict()
         self.factory = Factory()

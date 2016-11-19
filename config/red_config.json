@@ -1,10 +1,12 @@
 {
   "process_count" : 1,
+  "webapi" : true,
   "queue" : {
     "host" : "localhost",
-    "port" : "",
-    "user" : "",
-    "pasword" : "",
+    "port" : 5672,
+    "monitoring_port" : 55672,
+    "user" : "guest",
+    "password" : "guest",
     "inqueue" : "",
     "outqueue" : "redqueue"
   },

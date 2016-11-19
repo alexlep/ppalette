@@ -2,13 +2,13 @@
   "process_count" : 256,
   "queue" : {
     "host" : "localhost",
-    "port" : "",
-    "user" : "",
-    "pasword" : "",
+    "port" : 5672,
+    "user" : "violet",
+    "password" : "violet",
     "inqueue" : "redqueue",
     "outqueue" : "violetqueue",
-    "consumer_amount" : 4,
-    "sender_amount" : 4,
+    "consumer_amount" : 16,
+    "sender_amount" : 16,
     "monitoring_outqueue" : "violetstats"
   },
   "log": {
