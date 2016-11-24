@@ -1,18 +1,25 @@
 from flask import Blueprint, render_template, abort, jsonify
 from jinja2 import TemplateNotFound
 from monitoring import RRD
+from core.models import Host, Subnet, Plugin, History, Suite, Status #bcrypt, Schedule
+from tools import prepareDictFromSQLA
+
 from glob import glob
 import time
-import json
+from flask import json
 
 VIOLET = 'violet'
 COMMON = 'common'
+PER_PAGE = 10
+STATUS_OK = 0
+STATUS_WARNING = 1
+STATUS_ERROR = 2
 
-def initRedApiBP(scheduler):
+def initRedApiBP(scheduler, db_session):
     redapiBP = Blueprint('redapi_blueprint', __name__)
     statRRDFile = 'common_statistics.rrd'
 
-    @redapiBP.route('/redapi/stats/common/<period>')
+    @redapiBP.route('/redapi/monitoring/common/<period>')
     def getCustomStats(period):
         if period == 'all':
             return jsonify(**RRD(statRRDFile).getChartData(hours = 1, grades = 60))
@@ -21,7 +28,7 @@ def initRedApiBP(scheduler):
         else:
             abort(404)
 
-    @redapiBP.route('/redapi/stats/violet/<violet_id>/<period>')
+    @redapiBP.route('/redapi/monitoring/violet/<violet_id>/<period>')
     def getSingleVioletStats(violet_id, period):
         if (violet_id.startswith('violet')) and (violet_id in getWorkersList().keys()):
             if period == "all":
@@ -33,7 +40,7 @@ def initRedApiBP(scheduler):
         else:
             abort(404)
 
-    @redapiBP.route('/redapi/stats/violets/<period>')
+    @redapiBP.route('/redapi/monitoring/violets/<period>')
     def getAllVioletStats(period):
         if period == 'all':
             res = dict()
@@ -78,6 +85,81 @@ def initRedApiBP(scheduler):
     @redapiBP.route('/redapi/violet/getactiveworkers')
     def getWorkersListJson():
         return jsonify(**getWorkersList())
+
+    @redapiBP.route('/redapi/status/<pluginType>/<int:page>')
+    def getPluginStatus(pluginType, page):
+        if page < 1:
+            abort(404)
+        hosts_query = db_session.query(Host)#.all()
+        hosts_status = hosts_query.limit(PER_PAGE).offset((page - 1) * PER_PAGE).all()
+        if pluginType == "all":
+            res = [check.APIGetDict(short = False) for check in hosts_status]
+        elif pluginType == "error":
+            res = [check.APIGetDict(short = False, exitcode = STATUS_ERROR) for check in hosts_status]
+        elif pluginType == "warn":
+            res = [check.APIGetDict(short = False, exitcode = STATUS_WARNING) for check in hosts_status]
+        elif pluginType == "ok":
+            res = [check.APIGetDict(short = False, exitcode = STATUS_OK) for check in hosts_status]
+        else:
+            abort(404)
+        return jsonify(*res)
+
+        #hosts_query = db_session.query(Status).\
+        #    filter(Status.last_exitcode == 0)
+             #subquery()
+        #hosts_query = db_session.query(Host).select_from(Status).\
+        #    join(Status.host).\
+        #    filter(Status.last_exitcode == '0')
+        #hosts_query = db_session.query(Host).join(status_subq, Host.stats)
+        #db_session.query(Host).join((Status, Host.stats))
+                                #filter(Status.last_exitcode == 0)
+        #hosts_status = hosts_query.limit(PER_PAGE).offset((page - 1) * PER_PAGE).all()
+
+    @redapiBP.route('/redapi/plugins/<int:page>')
+    def getPluginsList(page):
+        if page < 1:
+            abort(404)
+        plugins_query = db_session.query(Plugin)
+        plugins = plugins_query.limit(PER_PAGE).offset((page - 1) * PER_PAGE).all()
+        res = [plugin.APIGetDict(short = False) for plugin in plugins]
+        return jsonify(*res)
+
+    @redapiBP.route('/redapi/suites/<int:page>')
+    def getSuitesList(page):
+        if page < 1:
+            abort(404)
+        suites_query = db_session.query(Suite)
+        suites = suites_query.limit(PER_PAGE).offset((page - 1) * PER_PAGE).all()
+        res = [suite.APIGetDict(short=False) for suite in suites]
+        return jsonify(*res)
+
+    @redapiBP.route('/redapi/subnets/<int:page>')
+    def getSubnetsList(page):
+        if page < 1:
+            abort(404)
+        subnets_query = db_session.query(Suite)
+        subnets = subnets_query.limit(PER_PAGE).offset((page - 1) * PER_PAGE).all()
+        res = [subnet.APIGetDict(short=False) for subnet in subnets]
+        return jsonify(*res)
+
+    @redapiBP.route('/redapi/hosts/<int:page>')
+    def getHostsList(page):
+        if page < 1:
+            abort(404)
+        hosts_query = db_session.query(Host)
+        hosts = hosts_query.limit(PER_PAGE).offset((page - 1) * PER_PAGE).all()
+        res = [host.APIGetDict(short=False) for host in hosts]
+        return jsonify(*res)
+
+    @redapiBP.route('/redapi/scheduler/jobs')
+    def getSchedulerJobs():
+        print scheduler.get_jobs()[PER_PAGE:]
+        #print dir(scheduler)
+        #print scheduler.get_jobs()[0].name
+        #print scheduler.get_jobs()[0].next_run_time
+        #print scheduler.get_jobs()[0].next_run_time
+        #scheduler.print_jobs()
+        return jsonify(**{})
 
     return redapiBP
 

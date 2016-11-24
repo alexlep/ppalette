@@ -5,7 +5,9 @@ import architect
 from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Table, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql.functions import now
+from sqlalchemy.orm import collections
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from database import Base
 from datetime import datetime
 
@@ -15,8 +17,23 @@ pluginsToSuites = Table('pluginsToSuites',
     Column('suites_id', Integer, ForeignKey('suite.id')),
     Column('plugin_id', Integer, ForeignKey('plugin.id'))
 )
+class RedBase(Base):
+    __abstract__ = True
+    def SQLA2Dict(self, params):
+        res = dict()
+        for param in params:
+            value = getattr(self, param)
+            if value.__class__.__name__ == 'InstrumentedList':
+                res[param] = list()
+                for elem in value:
+                    res[param].append(elem.APIGetDict())
+            elif isinstance(type(value), DeclarativeMeta):
+                res[param] = value.APIGetDict()
+            else:
+                res[param] = value
+        return res
 
-class Suite(Base):
+class Suite(RedBase):
     __tablename__ = 'suite'
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
@@ -28,7 +45,13 @@ class Suite(Base):
     def __unicode__(self):
         return self.name
 
-class Plugin(Base):
+    def APIGetDict(self, short = True):
+        params = ['name']
+        if not short:
+            params.extend(['host', 'subnet', 'plugins'])
+        return self.SQLA2Dict(params)
+
+class Plugin(RedBase):
     __tablename__ = 'plugin'
     id = Column(Integer, primary_key=True)
     pluginUUID = Column(String(36), unique=True)
@@ -38,14 +61,20 @@ class Plugin(Base):
     params = Column(String(200))
     interval = Column(Integer, default=30)
     date_created = Column(DateTime, default=now())
-    date_modified = Column(DateTime, default=now())
+    date_modified = Column(DateTime, default=now()) # onupdate=db.func.now()
     ssh_wrapper = Column(Boolean(), default = False)
     suites = relationship('Suite', secondary=pluginsToSuites, backref=backref('pluginos', lazy='dynamic'))
 
     def __unicode__(self):
         return self.customname
 
-class Host(Base):
+    def APIGetDict(self, short=True):
+        params = ['script','customname', 'interval']
+        if not short:
+            params.extend(['suites', 'description', 'ssh_wrapper'])
+        return self.SQLA2Dict(params)
+
+class Host(RedBase):
     __tablename__ = 'host'
     id = Column(Integer, primary_key=True)
     hostUUID = Column(String(36), unique=True)
@@ -82,7 +111,32 @@ class Host(Base):
     def listScheduleItems(self):
         return map(lambda plugUUID: self.hostUUID + plugUUID, [plug.pluginUUID for plug in self.suite.plugins])
 
-class Status(Base):
+    def APIGetDict(self, short=True, exitcode = None):
+        params = ['hostname','ipaddress','maintenance']
+        if not short:
+            params.extend(['stats', 'subnet', 'suite'])
+        # TODO: FIX ALL THIS FRIGHTENING BULLSHIT!
+        res = dict()
+        for param in params:
+            value = getattr(self, param)
+            if value.__class__.__name__ == 'InstrumentedList':
+                res[param] = list()
+                for elem in value:
+                    if param != 'stats':
+                        res[param].append(elem.APIGetDict())
+                    else:
+                        if exitcode == None:
+                            res[param].append(elem.APIGetDict())
+                        else:
+                            if elem.last_exitcode == exitcode:
+                                res[param].append(elem.APIGetDict())
+            elif isinstance(type(value), DeclarativeMeta):
+                res[param] = value.APIGetDict()
+            else:
+                res[param] = value
+        return res
+
+class Status(RedBase):
     __tablename__ = 'status'
     id = Column(Integer, primary_key=True)
     statusid = Column(String(36), unique=True)
@@ -99,7 +153,12 @@ class Status(Base):
     def __unicode__(self):
         return self.plugin.customname
 
-#@architect.install('partition', type='range', subtype='date', constraint='day', column='check_run_time', db='mysql://test:test@localhost/palette?charset=utf8')
+    def APIGetDict(self):
+        params = ['plugin','interval',
+                  'last_check_run','last_status',
+                  'last_exitcode']
+        return self.SQLA2Dict(params)
+
 class History(Base):
     __tablename__ = 'history'
     id = Column(Integer, primary_key=True)
@@ -126,7 +185,7 @@ class History(Base):
         self.interval = msg.interval
         self.details = msg.details
 
-class Subnet(Base):
+class Subnet(RedBase):
     __tablename__ = 'subnet'
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
@@ -139,3 +198,9 @@ class Subnet(Base):
 
     def __unicode__(self):
         return self.name
+
+    def APIGetDict(self, short = True):
+        params = ['name']
+        if not short:
+            params.extend(['subnet', 'netmask', 'description','host','suite'])
+        return self.SQLA2Dict(params)

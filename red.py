@@ -150,13 +150,13 @@ if not init_db(False):
     sys.exit(1)
 
 RedApp = Scheduler(redConfigFile)
-RedApp.startRedService()
+#RedApp.startRedService()
     #if RedApp.config.webapi:
 
 RedApi = Flask (__name__)
 RedApi.secret_key="a92547e3847063649d9d732a183418bf"
-RedApi.register_blueprint(initRedApiBP(RedApp))
-    #RedApi.run(debug=False, host='0.0.0.0', port=5001, threaded=True)
+RedApi.register_blueprint(initRedApiBP(RedApp, db_session))
+#RedApi.run(debug=False, host='0.0.0.0', port=5001, threaded=True)
     #else:
     #    import time
     #    while True:
