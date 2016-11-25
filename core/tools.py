@@ -7,7 +7,6 @@ import uuid
 import socket
 import datetime as dt
 import time
-#from datetime import datetime
 from sshexecutor import SSHConnection
 
 class Message(object):
@@ -41,7 +40,8 @@ class Message(object):
 
     def tojson(self, refreshTime = False):
         if refreshTime:
-            self.scheduled_time = dt.datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+            self.scheduled_time = dt.datetime.now().\
+                                    strftime("%H:%M:%S:%d:%m:%Y")
         return json.dumps(self.__dict__)
 
     def prepareSSHCommand(self):
@@ -101,7 +101,10 @@ def parseConfig(config):
 
 @time_wrap
 def executeDiscovery(job):
-    process = subprocess.Popen(job.prepareDiscoveryCommand(), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    process = subprocess.Popen(job.prepareDiscoveryCommand(),
+                               shell=True,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
     job.output = process.communicate()[0].rstrip() # here subprocess is killed
     job.exitcode = process.returncode
     job.hostname = resolveIP(job.ipaddress)
@@ -109,7 +112,10 @@ def executeDiscovery(job):
 
 @time_wrap
 def executeProcess(job):
-    process = subprocess.Popen(job.prepareLocalCommand(), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    process = subprocess.Popen(job.prepareLocalCommand(),
+                               shell=True,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
     out = process.communicate()[0].rstrip() # here subprocess is killed
     try:
         job.output, job.details = out.split("|")
@@ -122,7 +128,9 @@ def executeProcess(job):
 def executeProcessViaSSH(job, ssh_config):
     if not (os.path.isfile(ssh_config.host_key_file)) or not (os.path.isfile(ssh_config.host_key_file)):
         raise IOError
-    conn = SSHConnection(ipaddress = job.ipaddress, user = job.login, ssh_config = ssh_config)
+    conn = SSHConnection(ipaddress = job.ipaddress,
+                         user = job.login,
+                         ssh_config = ssh_config)
     job.output, job.details, job.exitcode = conn.executeCommand(job.prepareSSHCommand()) # here remote connection is killed
     return job
 
@@ -156,7 +164,6 @@ def fromJSONtoDict(data):
 
 def fromDictToJson(data):
     msg = json.dumps(data)
-    #    msg = None
     return msg
 
 def getUniqueID(short = False):
@@ -168,7 +175,15 @@ def getUniqueID(short = False):
 
 def resolveIP(ipaddress):
     try:
-        result = socket.gethostbyaddr(ipaddress)[0]
+        res = socket.gethostbyaddr(ipaddress)[0]
     except:
-        result = ipaddress
-    return result
+        res = ipaddress
+    return res
+
+def validateIP(ipaddress):
+    try:
+        socket.inet_aton(ipaddress)
+        res = True
+    except socket.error:
+        res = False
+    return res

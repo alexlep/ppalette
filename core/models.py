@@ -40,13 +40,15 @@ class Suite(RedBase):
     description = Column(String(100))
     host = relationship("Host", back_populates="suite")
     subnet = relationship("Subnet", back_populates="suite")
-    plugins = relationship('Plugin', secondary=pluginsToSuites, backref=backref('suitos', lazy='dynamic'))
+    plugins = relationship('Plugin',
+                           secondary=pluginsToSuites,
+                           backref=backref('suitos', lazy='dynamic'))
 
     def __unicode__(self):
         return self.name
 
     def APIGetDict(self, short = True):
-        params = ['name']
+        params = ['id', 'name']
         if not short:
             params.extend(['host', 'subnet', 'plugins'])
         return self.SQLA2Dict(params)
@@ -63,13 +65,15 @@ class Plugin(RedBase):
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now()) # onupdate=db.func.now()
     ssh_wrapper = Column(Boolean(), default = False)
-    suites = relationship('Suite', secondary=pluginsToSuites, backref=backref('pluginos', lazy='dynamic'))
+    suites = relationship('Suite',
+                          secondary=pluginsToSuites,
+                          backref=backref('pluginos', lazy='dynamic'))
 
     def __unicode__(self):
         return self.customname
 
     def APIGetDict(self, short=True):
-        params = ['script','customname', 'interval']
+        params = ['id', 'script','customname', 'interval']
         if not short:
             params.extend(['suites', 'description', 'ssh_wrapper'])
         return self.SQLA2Dict(params)
@@ -77,11 +81,11 @@ class Plugin(RedBase):
 class Host(RedBase):
     __tablename__ = 'host'
     id = Column(Integer, primary_key=True)
-    hostUUID = Column(String(36), unique=True)
+    hostUUID = Column(String(36), unique=True, default=tools.getUniqueID)
     hostname = Column(String(100))
-    ipaddress = Column(String(100))
+    ipaddress = Column(String(100), unique=True)
     login = Column(String(80), default='violet')
-    maintenance = Column(Boolean(), default = False)
+    maintenance = Column(Boolean(), default=True)
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now())
     suite_id = Column(Integer, ForeignKey('suite.id'))
@@ -109,32 +113,14 @@ class Host(RedBase):
         return res
 
     def listScheduleItems(self):
-        return map(lambda plugUUID: self.hostUUID + plugUUID, [plug.pluginUUID for plug in self.suite.plugins])
+        return map(lambda plugUUID: self.hostUUID + plugUUID,
+                   [plug.pluginUUID for plug in self.suite.plugins])
 
     def APIGetDict(self, short=True, exitcode = None):
-        params = ['hostname','ipaddress','maintenance']
+        params = ['id', 'hostname','ipaddress','maintenance']
         if not short:
             params.extend(['stats', 'subnet', 'suite'])
-        # TODO: FIX ALL THIS FRIGHTENING BULLSHIT!
-        res = dict()
-        for param in params:
-            value = getattr(self, param)
-            if value.__class__.__name__ == 'InstrumentedList':
-                res[param] = list()
-                for elem in value:
-                    if param != 'stats':
-                        res[param].append(elem.APIGetDict())
-                    else:
-                        if exitcode == None:
-                            res[param].append(elem.APIGetDict())
-                        else:
-                            if elem.last_exitcode == exitcode:
-                                res[param].append(elem.APIGetDict())
-            elif isinstance(type(value), DeclarativeMeta):
-                res[param] = value.APIGetDict()
-            else:
-                res[param] = value
-        return res
+        return self.SQLA2Dict(params)
 
 class Status(RedBase):
     __tablename__ = 'status'
@@ -165,9 +151,9 @@ class History(Base):
     desc = Column(String(100))
     details = Column(String(200))
     interval = Column(Integer)
-    host_id = Column(Integer(), ForeignKey(Host.id)) #, ForeignKey(Host.id))
+    host_id = Column(Integer(), ForeignKey(Host.id))
     host = relationship(Host, backref='history')
-    plugin_id = Column(Integer(), ForeignKey(Plugin.id)) # ForeignKey(Plugin.id))
+    plugin_id = Column(Integer(), ForeignKey(Plugin.id))
     plugin = relationship(Plugin, backref='history')
     check_run_time = Column(DateTime, default=datetime.fromtimestamp(0))
     check_status = Column(String(1000))
@@ -200,7 +186,7 @@ class Subnet(RedBase):
         return self.name
 
     def APIGetDict(self, short = True):
-        params = ['name']
+        params = ['id', 'name']
         if not short:
             params.extend(['subnet', 'netmask', 'description','host','suite'])
         return self.SQLA2Dict(params)
