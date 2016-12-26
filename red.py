@@ -104,7 +104,22 @@ class Scheduler(BackgroundScheduler):
         if job.maintenance:
             self.pause_job(jobid)
 
-    def resumeHostFromMaintenance(self, host):
+    def removeHostChecks(self, host):
+        """
+        Removes all host_id+plugin_id items in scheduler
+        """
+        for item in host.listScheduleItems():
+            self.remove_job(item)
+
+    def pauseHostChecks(self, host):
+        """
+        Puts host plugins to maintenance mode.
+        Pauses all host_id+plugin_id items in scheduler
+        """
+        for item in host.listScheduleItems():
+            self.pause_job(item)
+
+    def activateHostChecks(self, host):
         """
         Activates all the tasks of the host, which was in maintenance mode.
         If the host was added while sheduler was already running, by default
@@ -113,13 +128,19 @@ class Scheduler(BackgroundScheduler):
         As of now - distribution algorithm from fillSchedule is ignored for
         newly added hosts, but full service restart will take care of new
         hosts.
+        If host is not attached to any suite - host is left in maintenance mode.
         """
-        for plugin in host.suite.plugins:
-            try:
-                self.resume_job("{0}{1}".format(host.hostUUID, plugin.pluginUUID))
-            except JobLookupError:
-                newjob = self._getSingleActiveTaskFromDB(host.hostUUID, plugin.pluginUUID)
-                self._registerJob(newjob)
+        if host.suite:
+            for plugin in host.suite.plugins:
+                try:
+                    self.resume_job("{0}{1}".format(host.hostUUID, plugin.pluginUUID))
+                except JobLookupError:
+                    newjob = self._getSingleActiveTaskFromDB(host.hostUUID, plugin.pluginUUID)
+                    self._registerJob(newjob)
+            res = True
+        else:
+            res = False
+        return res
 
     ### --------------------------------------
     def sendCommonJobToMQ(self, jobMessage):
@@ -150,7 +171,7 @@ if not init_db(False):
     sys.exit(1)
 
 RedApp = Scheduler(redConfigFile)
-#RedApp.startRedService()
+RedApp.startRedService()
     #if RedApp.config.webapi:
 
 RedApi = Flask (__name__)

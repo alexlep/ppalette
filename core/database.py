@@ -2,7 +2,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.exc import OperationalError
 
 url = 'mysql://test:test@localhost/palette?use_unicode=1&charset=utf8'
 engine = create_engine(url,

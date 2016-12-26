@@ -65,9 +65,25 @@ def initRedApiBP(scheduler, db_session):
 
     @redapiBP.route('/redapi/violet/getactiveworkers')
     def getWorkersListJson():
-        return jsonify(**getWorkersList())
+        try:
+            return jsonify(**getWorkersList())
+        except:
+            # log it!
+            abort(501)
 
+    def getWorkersList():
+        workers = scheduler.MQ.getActiveClients()
+        res = dict()
+        for worker in workers:
+            if worker.get('user') == 'violet':
+                worker_id = worker['client_properties']['connection_id']
+                res[worker_id] = dict(host = worker.get('host'),
+                                      user = worker.get('user'))
+        return res
+
+    ############################################################################
     @redapiBP.route('/redapi/status')
+    @redapiBP.route('/redapi/status/<pluginType>')
     @redapiBP.route('/redapi/status/<pluginType>/<int:page>')
     def getPluginStatus(pluginType = 'all', page = 1):
         if page < 1:
@@ -126,6 +142,15 @@ def initRedApiBP(scheduler, db_session):
         res = [host.APIGetDict(short=False) for host in hosts]
         return jsonify(*res)
 
+    def generateHostStatsQuery(exitcode):
+        return db_session.query(Host).join(Host.stats).\
+                options(contains_eager(Host.stats)).\
+                filter(Status.last_exitcode == exitcode)
+
+    def paginationOutputOfQuery(query, page, perPage = PER_PAGE):
+        return query.limit(PER_PAGE).offset((page - 1) * perPage).all()
+    ############################################################################
+    """
     @redapiBP.route('/redapi/scheduler/jobs')
     def getSchedulerJobs():
         print scheduler.get_jobs()[PER_PAGE:]
@@ -135,43 +160,148 @@ def initRedApiBP(scheduler, db_session):
         #print scheduler.get_jobs()[0].next_run_time
         #scheduler.print_jobs()
         return jsonify(**{})
-
-    @redapiBP.route('/redapi/host', methods = ['GET','PUT'])
+    """
+    @redapiBP.route('/redapi/host', methods = ['GET','POST','PUT','DELETE'])
     def singleHostOps():
+        """
+        Api to handle single host.
+        Available methods = GET, POST, PUT, DELETE
+        ---
+        GET
+        /redapi/host?ip=<ip>
+        get all the info for single host
+        ---
+        POST
+        /redapi/host?ip=<ip>&hostname=<hostname>&suite=<suitename>&subnet=<subnetname>
+        ---
+        PUT
+        /redapi/host?ip=<ip>&maintenance=<on|off>
+        manage maintenance mode for host
+
+        """
         exitcode = 200
         if request.method == 'GET':
-            ip = request.args.get('ip') or '127.0.0.1'
-            if not validateIP(ip):
-                abort(404)
-            host = db_session.query(Host).\
-                        filter(Host.ipaddress == ip).first()
-            if not host:
-                res = dict(message = 'Host with provided IP not found')
-                exitcode = 404
-            else:
-                res = host.APIGetDict(short = False)
-        elif 'PUT':
             try:
-                ip, suiteID, subnetID =  parseParamsForNewHost(request.args)
+                res, exitcode = apiHostGetRequest(request.args)
             except AssertionError:
                 abort(404)
-            newHost = Host()
-            newHost.ipaddress = ip
-            newHost.hostname = resolveIP(ip)
-            newHost.suite_id = suiteID
-            newHost.subnet_id = subnetID
-            db_session.add(newHost)
+        elif request.method == 'POST':
             try:
-                db_session.commit()
-                res = dict(message = 'Host successfully added')
-            except IntegrityError as e:
-                db_session.rollback()
-                res = dict(message = e.message)
-                exitcode = 501
+                res, exitcode = apiHostPostRequest(request.args)
+            except AssertionError:
+                abort(404)
+        elif request.method == 'PUT':
+            try:
+                res, exitcode = apiHostPutRequest(request.args)
+            except AssertionError:
+                abort(404)
+        elif request.method == 'DELETE':
+            try:
+                res, exitcode = apiHostDeleteRequest(request.args)
+            except AssertionError:
+                abort(404)
         return jsonify(**res), exitcode
 
-    ############################################################################
-    def parseParamsForNewHost(params):
+    def apiHostGetRequest(params):
+        ip = params.get('ip') or '127.0.0.1'
+        if not validateIP(ip):
+            raise AssertionError
+        host = db_session.query(Host).\
+                    filter(Host.ipaddress == ip).first()
+        if not host:
+            res = dict(message = 'Host with provided IP not found')
+            exitcode = 404
+        else:
+            res = host.APIGetDict(short = False)
+            exitcode = 200
+        return (res, exitcode)
+
+    def apiHostPostRequest(params):
+        params_checked = parseParamsForHost(params)
+        db_session.add(Host(*params_checked))
+        try:
+            db_session.commit()
+            res = dict(message = 'Host successfully added')
+            exitcode = 200
+        except IntegrityError as e:
+            db_session.rollback()
+            res = dict(message = e.message)
+            exitcode = 501
+        return (res, exitcode)
+
+    def apiHostPutRequest(params):
+        ip = params.get('ip')
+        if not validateIP(ip):
+            raise AssertionError
+        host = db_session.query(Host).\
+                    filter(Host.ipaddress == ip).first()
+        if not host:
+            res = dict(message = 'Host with provided IP not found')
+            exitcode = 404
+        else:
+            if not params.get('maintenance'):
+                host_upd = updateHostParams(host, *parseParamsForHost(params))
+                scheduler.activateHostChecks(host_upd)
+                db_session.add(host_upd)
+                db_session.commit()
+                res = dict(message = 'Host updated')
+                exitcode = 200
+            else:
+                if params.get('maintenance') == 'on':
+                    host.maintenanceON()
+                    scheduler.pauseHostChecks(host)
+                    db_session.add(host)
+                    db_session.commit()
+                    res = dict(message = 'Host updated')
+                    exitcode = 200
+                elif params.get('maintenance') == 'off':
+                    host.maintenanceOFF()
+                    if not scheduler.activateHostChecks(host):
+                        res = dict(message = 'No suite attached to host!')
+                        exitcode = 501
+                    else:
+                        db_session.add(host)
+                        db_session.commit()
+                        res = dict(message = 'Host updated')
+                        exitcode = 200
+        return (res, exitcode)
+
+    def apiHostDeleteRequest(params):
+        ip = params.get('ip')
+        if not validateIP(ip):
+            raise AssertionError
+        host = db_session.query(Host).\
+                    filter(Host.ipaddress == ip).first()
+        if not host:
+            res = dict(message = 'Host with provided IP not found')
+            exitcode = 404
+        else:
+            try:
+                db_session.delete(host)
+                db_session.commit()
+                scheduler.removeHostChecks(hosts)
+                res = dict(message = 'Host with provided IP was deleted')
+                exitcode = 200
+            except Exception as e:
+                res = dict(message = e.message)
+                exitcode = 501
+        return (res, exitcode)
+
+    def updateHostParams(host, ip, suiteID, subnetID, hostname, login):
+        if hostname:
+            host.hostname = hostname
+        if login:
+            host.login = logins
+        if subnetID:
+            host.subnet_id = subnetID
+        if suiteID:
+            if host.suite_id:
+                scheduler.removeHostChecks(host)
+                host.stats[:] = list()
+            host.suite_id = suiteID
+        return host
+
+    def parseParamsForHost(params):
         suiteID = subnetID = None
         ip = params.get('ip')
         if not validateIP(ip):
@@ -192,29 +322,79 @@ def initRedApiBP(scheduler, db_session):
                 if not suite:
                     suiteID = subnetDB.suite.id
                 subnetID = subnetDB.id
-        return (ip, suiteID, subnetID)
+        hostname = params.get('hostname')
+        if not hostname:
+            hostname = resolveIP(ip)
+        login = params.get('login')
+        return (ip, suiteID, subnetID, hostname, login)
+    ############################################################################
+    @redapiBP.route('/redapi/plugin', methods = ['GET','POST','PUT','DELETE'])
+    def singlePluginOps():
+        """
+        Api to handle single host.
+        Available methods = GET, POST, PUT, DELETE
+        ---
+        GET
+        /redapi/host?ip=<ip>
+        get all the info for single host
+        ---
+        POST
+        /redapi/host?ip=<ip>&hostname=<hostname>&suite=<suitename>&subnet=<subnetname>
+        ---
+        PUT
+        /redapi/host?ip=<ip>&maintenance=<on|off>
+        manage maintenance mode for host
 
-    def getWorkersList():
+        """
+        exitcode = 200
+        if request.method == 'GET':
+            try:
+                res, exitcode = apiPluginGetRequest(request.args)
+            except AssertionError:
+                abort(404)
+        elif request.method == 'POST':
+            try:
+                res, exitcode = apiPluginPostRequest(request.args)
+            except AssertionError:
+                abort(404)
+        elif request.method == 'PUT':
+            try:
+                res, exitcode = apiPluginPutRequest(request.args)
+            except AssertionError:
+                abort(404)
+        elif request.method == 'DELETE':
+            try:
+                res, exitcode = apiPluginDeleteRequest(request.args)
+            except AssertionError:
+                abort(404)
+        return jsonify(**res), exitcode
+
+    def apiPluginGetRequest(params):
+        customname = params.get('customname')
+        if not customname:
+            raise AssertionError
+        plugin = db_session.query(Plugin).\
+                    filter(Plugin.customname == customname).first()
+        if not plugin:
+            res = dict(message = 'Plugin with provided customname not found')
+            exitcode = 404
+        else:
+            res = plugin.APIGetDict(short = False)
+            exitcode = 200
+        return (res, exitcode)
+
+    def apiPluginPostRequest(params):
+        params_checked = parseParamsForHost(params)
+        db_session.add(Host(*params_checked))
         try:
-            workers = scheduler.MQ.getActiveClients()
-        except:
-            abort(404)
-        res = dict()
-        for worker in workers:
-            if worker.get('user') == 'violet':
-                worker_id = worker['client_properties']['connection_id']
-                res[worker_id] = dict(host = worker.get('host'),
-                                      user = worker.get('user'))
-        return res
-
-    def generateHostStatsQuery(exitcode):
-        return db_session.query(Host).join(Host.stats).\
-                options(contains_eager(Host.stats)).\
-                filter(Status.last_exitcode == exitcode)
-
-    def paginationOutputOfQuery(query, page, perPage = PER_PAGE):
-        return query.limit(PER_PAGE).offset((page - 1) * perPage).all()
-
+            db_session.commit()
+            res = dict(message = 'Host successfully added')
+            exitcode = 200
+        except IntegrityError as e:
+            db_session.rollback()
+            res = dict(message = e.message)
+            exitcode = 501
+        return (res, exitcode)
     return redapiBP
 
 """

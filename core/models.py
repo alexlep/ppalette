@@ -36,7 +36,7 @@ class RedBase(Base):
 class Suite(RedBase):
     __tablename__ = 'suite'
     id = Column(Integer, primary_key=True)
-    name = Column(String(100))
+    name = Column(String(100), unique=True)
     description = Column(String(100))
     host = relationship("Host", back_populates="suite")
     subnet = relationship("Subnet", back_populates="suite")
@@ -63,7 +63,7 @@ class Plugin(RedBase):
     params = Column(String(200))
     interval = Column(Integer, default=30)
     date_created = Column(DateTime, default=now())
-    date_modified = Column(DateTime, default=now()) # onupdate=db.func.now()
+    date_modified = Column(DateTime, default=now(), onupdate=now())
     ssh_wrapper = Column(Boolean(), default = False)
     suites = relationship('Suite',
                           secondary=pluginsToSuites,
@@ -87,12 +87,22 @@ class Host(RedBase):
     login = Column(String(80), default='violet')
     maintenance = Column(Boolean(), default=True)
     date_created = Column(DateTime, default=now())
-    date_modified = Column(DateTime, default=now())
+    date_modified = Column(DateTime, default=now(), onupdate=now())
     suite_id = Column(Integer, ForeignKey('suite.id'))
-    suite = relationship("Suite")
+    suite = relationship("Suite", lazy='subquery')
     subnet_id = Column(Integer, ForeignKey('subnet.id'))
-    subnet = relationship("Subnet")
-    stats = relationship("Status")
+    subnet = relationship("Subnet", lazy='subquery')
+    stats = relationship("Status", cascade="all, delete-orphan")
+
+    def __init__(self, ip = None, suiteID = None,\
+                 subnetID = None, hostname = None,
+                 login = None):
+        self.ipaddress = ip
+        self.hostname = hostname
+        self.suite_id = suiteID
+        self.subnet_id = subnetID
+        if login:
+            self.login = login
 
     def __unicode__(self):
         return self.hostname
@@ -174,7 +184,7 @@ class History(Base):
 class Subnet(RedBase):
     __tablename__ = 'subnet'
     id = Column(Integer, primary_key=True)
-    name = Column(String(100))
+    name = Column(String(100), unique=True)
     subnet = Column(String(100))
     netmask = Column(String(100))
     description = Column(String(100))

@@ -21,7 +21,7 @@ class Grey(object):
         self.config = parseConfig(configFile)
         self.log = initLogging(self.config.log, __name__) # init logging
         self.MQ = MQ(self.config.queue, self.log)
-        self.consumers = [Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.inqueue), funct = self.callback) for _ in range(self.config.consumer_amount)]
+        self.consumers = [ Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.inqueue), funct = self.callback) for _ in range(self.config.consumer_amount)]
         self.monitoringConsumer = Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.monitoring_inqueue), funct = self.updateVioletStats) # statistics from violets, monitoring_inqueue
         self.rrdCommon = 'common_statistics.rrd'
 
