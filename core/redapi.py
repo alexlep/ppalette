@@ -149,18 +149,9 @@ def initRedApiBP(scheduler, db_session):
 
     def paginationOutputOfQuery(query, page, perPage = PER_PAGE):
         return query.limit(PER_PAGE).offset((page - 1) * perPage).all()
+
     ############################################################################
-    """
-    @redapiBP.route('/redapi/scheduler/jobs')
-    def getSchedulerJobs():
-        print scheduler.get_jobs()[PER_PAGE:]
-        #print dir(scheduler)
-        #print scheduler.get_jobs()[0].name
-        #print scheduler.get_jobs()[0].next_run_time
-        #print scheduler.get_jobs()[0].next_run_time
-        #scheduler.print_jobs()
-        return jsonify(**{})
-    """
+
     @redapiBP.route('/redapi/host', methods = ['GET','POST','PUT','DELETE'])
     def singleHostOps():
         """
@@ -217,7 +208,11 @@ def initRedApiBP(scheduler, db_session):
         return (res, exitcode)
 
     def apiHostPostRequest(params):
-        params_checked = parseParamsForHost(params)
+        try:
+            params_checked = parseParamsForHost(params)
+        except ValueError as ve:
+            res = dict(message = ve.message)
+            return (res, 501)
         db_session.add(Host(*params_checked))
         try:
             db_session.commit()
@@ -305,19 +300,19 @@ def initRedApiBP(scheduler, db_session):
         suiteID = subnetID = None
         ip = params.get('ip')
         if not validateIP(ip):
-            raise AssertionError
+            raise ValueError("Failed to validate provided IP")
         suite = params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
             if not suiteDB:
-                raise AssertionError
+                raise ValueError("Provided suite is not found in DB")
             else:
                 suiteID = suiteDB.id
         subnet = params.get('subnet')
         if subnet:
             subnetDB = Subnet.query.filter(Subnet.name == subnet).first()
             if not subnetDB:
-                raise AssertionError
+                raise ValueError("Provided subnet is not found in DB")
             else:
                 if not suite:
                     suiteID = subnetDB.suite.id
@@ -327,19 +322,21 @@ def initRedApiBP(scheduler, db_session):
             hostname = resolveIP(ip)
         login = params.get('login')
         return (ip, suiteID, subnetID, hostname, login)
+
     ############################################################################
+
     @redapiBP.route('/redapi/plugin', methods = ['GET','POST','PUT','DELETE'])
     def singlePluginOps():
         """
-        Api to handle single host.
+        Api to handle single plugin.
         Available methods = GET, POST, PUT, DELETE
         ---
         GET
-        /redapi/host?ip=<ip>
-        get all the info for single host
+        /redapi/plugin?customname=<customname>
+        get all the params for single plugin
         ---
         POST
-        /redapi/host?ip=<ip>&hostname=<hostname>&suite=<suitename>&subnet=<subnetname>
+        /redapi/plugin?customname=<customname>&script=<script>&interval=<interval>&params=<params>&ssh_wrapper=<on|off>
         ---
         PUT
         /redapi/host?ip=<ip>&maintenance=<on|off>
@@ -384,56 +381,84 @@ def initRedApiBP(scheduler, db_session):
         return (res, exitcode)
 
     def apiPluginPostRequest(params):
-        params_checked = parseParamsForHost(params)
-        db_session.add(Host(*params_checked))
+        try:
+            params_checked = parseParamsForPlugin(params)
+        except ValueError as ve:
+            res = dict(message = ve.message)
+            return (res, 501)
+        db_session.add(Plugin(*params_checked))
         try:
             db_session.commit()
-            res = dict(message = 'Host successfully added')
+            res = dict(message = 'Plugin successfully added')
             exitcode = 200
         except IntegrityError as e:
             db_session.rollback()
             res = dict(message = e.message)
             exitcode = 501
         return (res, exitcode)
+
+    def apiPluginPutRequest(params):
+        pass
+
+    def apiPluginDeleteRequest(params):
+        customname = params.get('customname')
+        if not customname:
+            raise AssertionError
+        plugin = db_session.query(Plugin).\
+                    filter(Plugin.customname == customname).first()
+        if not plugin:
+            res = dict(message = 'Plugin with provided customname not found')
+            exitcode = 404
+        else:
+            try:
+                db_session.delete(plugin)
+                db_session.commit()
+                #scheduler.removeHostChecks(hosts)
+                res = dict(message = 'Plugin with provided customname was deleted')
+                exitcode = 200
+            except Exception as e:
+                res = dict(message = e.message)
+                exitcode = 501
+        return (res, exitcode)
+
+    def parseParamsForPlugin(params):
+        customname = params.get('customname')
+        if not customname:
+            raise ValueError("customname is not set")
+        interval = params.get('interval')
+        if interval:
+            try:
+                int(interval)
+            except:
+                raise ValueError("interval value is incorrect")
+        ssh_wrapper = params.get('ssh_wrapper') or False
+        if ssh_wrapper:
+            if ssh_wrapper == "on":
+                ssh_wrapper = True
+            else:
+                raise ValueError("ssh_wrapper parameter is incorrect")
+        script = params.get('script')
+        if not script:
+            raise ValueError("script name is not set")
+        script_params = params.get('params')
+        return (script, customname, interval, script_params, ssh_wrapper)
+
+    ############################################################################
+
+    @redapiBP.route('/redapi/scheduler/jobs')
+    def getSchedulerJobs():
+        """
+        Temporary solution without pagination
+        """
+        jobs = scheduler.get_jobs()
+        jobs_list = list()
+        for job in jobs:
+            jobs_list.append(dict(name=job.name, id=job.id))
+        return jsonify(*jobs_list)
+
     return redapiBP
 
 """
-from flask import Flask
-from core.tools import parseConfig, draftClass, initLogging
-from core.scheduler import Scheduler
-
-
-
-redConfigFile = './config/red_config.json'
-RedApp = Scheduler(redConfigFile)
-
-BlueApp = Flask (__name__)
-
-@BlueApp.route('/api/job/add/<id_>', methods=['GET','POST'])
-def add_job(id_):
-    try:
-        ss.addJobFromDB(int(id_))
-    except:
-        abort(500)
-    return 'Hello, World!'
-
-@BlueApp.route('/api/job/remove/<id_>', methods=['GET','POST'])
-def remove_job(id_):
-    if id_ == 'all':
-        ss.remove_all_jobs()
-    return 'removed'
-
-@BlueApp.route('/api/job/get/<id_>', methods=['GET','POST'])
-def get_job(id_):
-    if id_ == 'all':
-        ss.get_jobs()
-    else:
-        try:
-            ss.get_job(int(id_))
-        except:
-            abort(500)
-    return '200'
-
 @BlueApp.route('/api/job/pause/<id_>', methods=['GET','POST'])
 def pause_job(id_):
     if id_ == 'all':

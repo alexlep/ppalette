@@ -69,13 +69,25 @@ class Plugin(RedBase):
                           secondary=pluginsToSuites,
                           backref=backref('pluginos', lazy='dynamic'))
 
+    def __init__(self, script = None, customname = None,\
+                 interval = None, params = None,
+                 ssh_wrapper = None):
+        self.script = script
+        self.customname = customname
+        self.params = params
+        #self.suites = suites
+        if ssh_wrapper:
+            self.ssh_wrapper = ssh_wrapper
+        if interval:
+            self.interval = interval
+
     def __unicode__(self):
         return self.customname
 
     def APIGetDict(self, short=True):
         params = ['id', 'script','customname', 'interval']
         if not short:
-            params.extend(['suites', 'description', 'ssh_wrapper'])
+            params.extend(['suites', 'description', 'ssh_wrapper', 'params'])
         return self.SQLA2Dict(params)
 
 class Host(RedBase):

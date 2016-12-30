@@ -43,12 +43,13 @@ class Scheduler(BackgroundScheduler):
         """ Fill Execution Scheduler
         Fetches all tasks (hosts and their plugins) and generates
         schedule from them. Distibutes the load for each plugin type.
-        If plugin is executed every 5 seconds for 10 hosts, they will be
-        distributed in such way:
+        If plugin is executed every 5 seconds for 10 hosts, schedule will look
+        this way:
         seconds:    1   2   3   4   5
         ------------|---|---|---|---|-
         hosts:      1   2   3   4   5
                     6   7   8   9   10
+                    ...
         """
         self.remove_all_jobs()
         taskdict = dict()
@@ -70,8 +71,12 @@ class Scheduler(BackgroundScheduler):
         Gets all the tasks(hosts and assigned plugins) from DB
         """
         return db_session.query(Plugin.id.label('pluginid'),
-                                Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params, Plugin.ssh_wrapper,
-                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname, Host.login, Host.maintenance).\
+                                Plugin.pluginUUID, Plugin.script,
+                                Plugin.interval, Plugin.params,
+                                Plugin.ssh_wrapper,
+                                Host.id.label('hostid'), Host.hostUUID,
+                                Host.ipaddress, Host.hostname,
+                                Host.login, Host.maintenance).\
                                 join((Suite, Plugin.suites)).\
                                 join((Host, Suite.host))
 
@@ -80,27 +85,32 @@ class Scheduler(BackgroundScheduler):
         Gets single task from DB
         """
         return db_session.query(Plugin.id.label('pluginid'),
-                                Plugin.pluginUUID, Plugin.script, Plugin.interval, Plugin.params, Plugin.ssh_wrapper,
-                                Host.id.label('hostid'), Host.hostUUID, Host.ipaddress, Host.hostname, Host.login, Host.maintenance).\
+                                Plugin.pluginUUID, Plugin.script,
+                                Plugin.interval, Plugin.params,
+                                Plugin.ssh_wrapper,
+                                Host.id.label('hostid'), Host.hostUUID,
+                                Host.ipaddress, Host.hostname,
+                                Host.login, Host.maintenance).\
                                 join((Suite, Plugin.suites)).\
                                 join((Host, Suite.host)).\
-                                filter(Host.hostUUID == hostUUID, Plugin.pluginUUID == pluginUUID).first()
+                                filter(Host.hostUUID == hostUUID,
+                                       Plugin.pluginUUID == pluginUUID).first()
 
     def _registerJob(self, job, jobStartTime = False):
         """
-        Adds task to shedule. If host is iuner maintenance - job is in paused
+        Adds task to schedule. If host is inder maintenance - job is in paused
         state.
         """
         jobDict = prepareDictFromSQLA(job)
         message = Message(jobDict)
         message.type = 'check'
         jobid = message.getScheduleJobID()
+        job_params = dict(args=[message], trigger='interval', id=jobid,
+                          seconds=message.interval, misfire_grace_time=10,
+                          name=message.pluginUUID)
         if jobStartTime:
-            self.add_job(self.sendCommonJobToMQ, args=[message], trigger = 'interval', id = jobid, seconds = message.interval,
-                     misfire_grace_time=10, next_run_time = jobStartTime)
-        else:
-            self.add_job(self.sendCommonJobToMQ, args=[message], trigger = 'interval', id = jobid, seconds = message.interval,
-                     misfire_grace_time=10)
+            job_params.update(next_run_time=jobStartTime)
+        self.add_job(self.sendCommonJobToMQ, **job_params)
         if job.maintenance:
             self.pause_job(jobid)
 
@@ -113,7 +123,7 @@ class Scheduler(BackgroundScheduler):
 
     def pauseHostChecks(self, host):
         """
-        Puts host plugins to maintenance mode.
+        Puts host's checks to maintenance mode.
         Pauses all host_id+plugin_id items in scheduler
         """
         for item in host.listScheduleItems():
@@ -121,13 +131,13 @@ class Scheduler(BackgroundScheduler):
 
     def activateHostChecks(self, host):
         """
-        Activates all the tasks of the host, which was in maintenance mode.
-        If the host was added while sheduler was already running, by default
-        host is in maintenance mode without tasks in shcedule, so tasks will be
-        automatically added here once maintenance mode will be deactivated.
+        Activates all the checks of the host, which was in maintenance mode.
+        If the host was added while scheduler was already running - host
+        is set to maintenance mode. To add host checks to scheduler maintenance
+        mode must be deactivated.
         As of now - distribution algorithm from fillSchedule is ignored for
-        newly added hosts, but full service restart will take care of new
-        hosts.
+        newly added hosts, but full service restart (or schedule reload) will
+        take care of new hosts.
         If host is not attached to any suite - host is left in maintenance mode.
         """
         if host.suite:
