@@ -19,7 +19,7 @@ class apiTestClass(unittest.TestCase):
 
     def tearDown(self):
         pass
-
+    # Host API tests
     def test10(self):
         # check_hosts
         result = self.app.get('/redapi/hosts')
@@ -65,5 +65,25 @@ class apiTestClass(unittest.TestCase):
         result = self.app.get('/redapi/hosts')
         self.assertEqual(result.status_code, 200)
 
+    # Plugin API tests
+    def test1000(self):
+        # post_create_plugin
+        result = self.app.post('/redapi/plugin?customname=check_mysql_linux_test&script=check_mysql')
+        self.assertEqual(result.status_code, 200)
+
+    def test1010(self):
+        # post_create_plugin
+        result = self.app.put('/redapi/plugin?customname=check_mysql_linux_test&params=-w10 -c20')
+        self.assertEqual(result.status_code, 200)
+
+    def test1020(self):
+        # check_hosts_else
+        result = self.app.get('/redapi/plugin?customname=check_mysql_linux_test')
+        self.assertEqual(result.status_code, 200)
+
+    def test1030(self):
+        # post_create_plugin - should fail as suite with such name does not exist
+        result = self.app.post('/redapi/plugin?customname=check_load_linux_test&script=check_load&suite=defLinuxRemoteSuite')
+        self.assertEqual(result.status_code, 400)
 if __name__ == '__main__':
     unittest.main()
