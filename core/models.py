@@ -70,9 +70,9 @@ class Plugin(RedBase):
                           backref=backref('pluginos', lazy='dynamic'))
     stats = relationship('Status', cascade='all, delete-orphan')
 
-    def __init__(self, script = None, customname = None,\
-                 interval = None, params = None,
-                 ssh_wrapper = None):
+    def __init__(self, script=None, customname=None,
+                 interval=None, params=None,
+                 ssh_wrapper=None, suiteDB=None):
         self.script = script
         self.customname = customname
         self.params = params
@@ -80,6 +80,23 @@ class Plugin(RedBase):
             self.ssh_wrapper = ssh_wrapper
         if interval:
             self.interval = interval
+        if suiteDB:
+            if suiteDB not in self.suites:
+                self.suites.append(suiteDB)
+
+    def updateParams(self, script=None, interval=None, params=None,
+                     ssh_wrapper=None, suiteDB=None):
+        if script:
+            self.script = script
+        if interval:
+            self.interval = interval
+        if params:
+            self.params = params
+        if suiteDB:
+            if suiteDB not in self.suites:
+                self.suites.append(suiteDB)
+        if ssh_wrapper:
+            self.ssh_wrapper = ssh_wrapper
 
     def __unicode__(self):
         return self.customname

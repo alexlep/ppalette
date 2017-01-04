@@ -172,7 +172,6 @@ def initRedApiBP(scheduler, db_session):
         manage maintenance mode for host
 
         """
-        exitcode = 200
         if request.method == 'GET':
             res, exitcode = apiHostGetRequest(request.args)
         elif request.method == 'POST':
@@ -187,15 +186,14 @@ def initRedApiBP(scheduler, db_session):
         try:
             ip = apiValidateIpParam('ip', params)
         except ValueError as ve:
-            res = dict(message=ve.message)
-            return (res, 501)
+            return (dict(message=ve.message), 400)
         host = db_session.query(Host).\
                     filter(Host.ipaddress == ip).first()
         if not host:
-            res = dict(message = 'Host with provided IP not found')
-            exitcode = 404
+            res = dict(message='Host with IP {} not found'.format(ip))
+            exitcode = 400
         else:
-            res = host.APIGetDict(short = False)
+            res = host.APIGetDict(short=False)
             exitcode = 200
         return (res, exitcode)
 
@@ -203,16 +201,16 @@ def initRedApiBP(scheduler, db_session):
         try:
             params_checked = parseParamsForHost(params)
         except ValueError as ve:
-            res = dict(message = ve.message)
-            return (res, 501)
+            return (dict(message=ve.message), 400)
         db_session.add(Host(*params_checked))
         try:
             db_session.commit()
-            res = dict(message = 'Host successfully added')
+            res = dict(message='Host {} successfully added'.\
+                       format(params.get('ip')))
             exitcode = 200
         except IntegrityError as e:
             db_session.rollback()
-            res = dict(message = e.message)
+            res = dict(message=e.message)
             exitcode = 501
         return (res, exitcode)
 
@@ -220,28 +218,27 @@ def initRedApiBP(scheduler, db_session):
         try:
             ip = apiValidateIpParam('ip', params)
         except ValueError as ve:
-            res = dict(message=ve.message)
-            return (res, 501)
+            return (dict(message=ve.message), 400)
         host = db_session.query(Host).\
                     filter(Host.ipaddress == ip).first()
         if not host:
-            res = dict(message='Host with provided IP not found')
-            exitcode = 404
+            res = dict(message='Host with IP {} not found'.format(ip))
+            exitcode = 400
         else:
             try:
                 host_params = parseParamsForHost(params=params, edit=True)
-                host.updateParams(*host_params)
-                db_session.add(host)
             except ValueError as ve:
                 res = dict(message=ve.message)
-                return (res, 501)
+                return (res, 400)
+            host.updateParams(*host_params)
+            db_session.add(host)
             try:
                 db_session.commit()
-                res = dict(message = 'Host updated')
+                res = dict(message='Host {} updated'.format(ip))
                 exitcode = 200
             except IntegrityError as e:
                 db_session.rollback()
-                res = dict(message = e.message)
+                res = dict(message=e.message)
                 exitcode = 501
         return (res, exitcode)
 
@@ -249,27 +246,27 @@ def initRedApiBP(scheduler, db_session):
         try:
             ip = apiValidateIpParam('ip', params)
         except ValueError as ve:
-            res = dict(message=ve.message)
-            return (res, 501)
+            return (dict(message=ve.message), 400)
         host = db_session.query(Host).\
                     filter(Host.ipaddress == ip).first()
         if not host:
-            res = dict(message='Host with provided IP not found')
-            exitcode = 404
+            res = dict(message='Host with IP {} not found'.format(ip))
+            exitcode = 400
         else:
             try:
                 db_session.delete(host)
                 db_session.commit()
-                #scheduler.removeHostChecks(host)
-                res = dict(message = 'Host with provided IP was deleted')
+                res = dict(message='Host with IP {} was deleted'.format(ip))
                 exitcode = 200
             except Exception as e:
-                res = dict(message = e.message)
+                res = dict(message=e.message)
                 exitcode = 501
         return (res, exitcode)
 
     def parseParamsForHost(params, edit = False):
         suiteID = subnetID = None
+        if not edit:
+            ip = apiValidateIpParam('ip', params)
         suite = params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
@@ -288,7 +285,6 @@ def initRedApiBP(scheduler, db_session):
                 subnetID = subnetDB.id
         login = params.get('login')
         if not edit:
-            ip = apiValidateIpParam('ip', params)
             hostname = params.get('hostname') or resolveIP(ip)
             res = (ip, suiteID, subnetID, hostname, login)
         else:
@@ -306,18 +302,22 @@ def initRedApiBP(scheduler, db_session):
         Available methods = GET, POST, PUT, DELETE
         ---
         GET
-        /redapi/plugin?customname=<customname>
+        /redapi/plugin?customname=<str>
         get all the params for single plugin
         ---
         POST
-        /redapi/plugin?customname=<customname>&script=<script>&interval=<interval>&params=<params>&ssh_wrapper=<on|off>
+        /redapi/plugin?customname=<str>&script=<str>&interval=<int>&params=<str>&ssh_wrapper=<on|off>&suite=<str>
+        create new plugin
         ---
         PUT
-        /redapi/host?ip=<ip>&maintenance=<on|off>
-        manage maintenance mode for host
+        /redapi/plugin?customname=<str>&script=<str>&interval=<int>&params=<str>&ssh_wrapper=<on|off>&suite=<str>
+        modify configuration of existing plugin
+        ---
+        DELETE
+        /redapi/plugin?customname=<str>
+        delete single plugin from DB
 
         """
-        exitcode = 200
         if request.method == 'GET':
             res, exitcode = apiPluginGetRequest(request.args)
         elif request.method == 'POST':
@@ -332,14 +332,13 @@ def initRedApiBP(scheduler, db_session):
         try:
             customname = apiValidateMandParam('customname', params)
         except ValueError as ve:
-            res = dict(message = ve.message)
-            return (res, 501)
+            return (dict(message=ve.message), 400)
         plugin = db_session.query(Plugin).\
                     filter(Plugin.customname == customname).first()
         if not plugin:
-            res = dict(message = 'Plugin with name {} not found'.\
+            res = dict(message='Plugin with name {} not found'.\
                        format(customname))
-            exitcode = 404
+            exitcode = 400
         else:
             res = plugin.APIGetDict(short = False)
             exitcode = 200
@@ -350,7 +349,7 @@ def initRedApiBP(scheduler, db_session):
             params_checked = parseParamsForPlugin(params)
         except ValueError as ve:
             res = dict(message = ve.message)
-            return (res, 501)
+            return (res, 400)
         newPlugin = Plugin(*params_checked)
         db_session.add(newPlugin)
         try:
@@ -365,20 +364,47 @@ def initRedApiBP(scheduler, db_session):
         return (res, exitcode)
 
     def apiPluginPutRequest(params):
-        pass
+        try:
+            customname = apiValidateMandParam('customname', params)
+        except ValueError as ve:
+            res = dict(message = ve.message)
+            return (res, 400)
+        plugin = db_session.query(Plugin).\
+                    filter(Plugin.customname == customname).first()
+        if not plugin:
+            res = dict(message = 'Plugin with name {} not found'.\
+                       format(customname))
+            exitcode = 400
+        else:
+            try:
+                params_checked = parseParamsForPlugin(params=params, edit=True)
+            except ValueError as ve:
+                res = dict(message = ve.message)
+                return (res, 400)
+            plugin.updateParams(*params_checked)
+            db_session.add(plugin)
+            try:
+                db_session.commit()
+                res = dict(message='Plugin with name {} was updated'.\
+                           format(customname))
+                exitcode = 200
+            except Exception as e:
+                res = dict(message = e.message)
+                exitcode = 501
+        return (res, exitcode)
 
     def apiPluginDeleteRequest(params):
         try:
             customname = apiValidateMandParam('customname', params)
         except ValueError as ve:
             res = dict(message = ve.message)
-            return (res, 501)
+            return (res, 400)
         plugin = db_session.query(Plugin).\
                     filter(Plugin.customname == customname).first()
         if not plugin:
             res = dict(message = 'Plugin with name {} not found'.\
                        format(customname))
-            exitcode = 404
+            exitcode = 400
         else:
             try:
                 db_session.delete(plugin)
@@ -392,13 +418,27 @@ def initRedApiBP(scheduler, db_session):
                 exitcode = 501
         return (res, exitcode)
 
-    def parseParamsForPlugin(params):
-        script = apiValidateMandParam('script', params)
-        customname = apiValidateMandParam('customname', params)
+    def parseParamsForPlugin(params, edit=False):
+        suiteDB = None
+        if not edit:
+            customname = apiValidateMandParam('customname', params)
+            script = apiValidateMandParam('script', params)
+        else:
+            script = params.get('script')
         interval = apiValidateIntegerParam('interval', params)
         script_params = params.get('params')
         ssh_wrapper = apiValidateTriggerParam('ssh_wrapper', params)
-        return (script, customname, interval, script_params, ssh_wrapper)
+        suite = params.get('suite')
+        if suite:
+            suiteDB = Suite.query.filter(Suite.name == suite).first()
+            if not suiteDB:
+                raise ValueError("Provided suite is not found in DB")
+        if not edit:
+            res = (script, customname, interval, script_params, ssh_wrapper,
+                   suiteDB)
+        else:
+            res = (script, interval, script_params, ssh_wrapper, suiteDB)
+        return res
 
     ############################################################################
 
@@ -414,38 +454,7 @@ def initRedApiBP(scheduler, db_session):
     return redapiBP
 
 """
-@BlueApp.route('/api/job/pause/<id_>', methods=['GET','POST'])
-def pause_job(id_):
-    if id_ == 'all':
-        ss.pause()
-    else:
-        try:
-            ss.pause_job(id_)
-        except:
-            abort(500)
-    return '200'
-
-@BlueApp.route('/api/job/resume/<id_>', methods=['GET','POST'])
-def resume_job(id_):
-    if id_ == 'all':
-        ss.resume()
-    else:
-        try:
-            ss.resume_job(id_)
-        except:
-            abort(500)
-    return '200'
-
-@BlueApp.route('/api/schedule/reload', methods=['GET','POST'])
-def reloadJobs():
-    try:
-        ss.fillSchedule()
-    except:
-        abort(500)
-    return '200'
-
 @BlueApp.teardown_appcontext
 def shutdown_session(exception=None):
     db_session.remove()
-
 """
