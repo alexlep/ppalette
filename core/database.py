@@ -2,12 +2,21 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.pool import QueuePool, StaticPool
 
-url = 'mysql://test:test@localhost/palette?use_unicode=1&charset=utf8'
+# SQLite, for tests
+
+url = 'sqlite:///ppalette.sqlite'
 engine = create_engine(url,
-                        pool_recycle=3600,
-                        isolation_level="READ UNCOMMITTED") #, echo=True) #('sqlite:///sample_db.sqlite')
-
+                    connect_args={'check_same_thread':False},
+                    poolclass=StaticPool)
+# MySQL
+'''
+url = 'mysql://test:test@localhost/palette?use_unicode=1&charset=utf8'
+engine = create_engine(url, pool_recycle=3600, pool_size=20, max_overflow=0,
+                       poolclass=QueuePool,
+                       isolation_level="READ UNCOMMITTED")
+'''
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=True,
                                          bind=engine))

@@ -29,10 +29,30 @@ class Message(object):
     exitcode = None
     time = None
     executor = None
-    def __init__ (self, data = dict(), fromJSON = False):
+    def __init__ (self, data=False, fromJSON=False, plugin=False,
+                  suite=False, host=False, subnet=False):
         if fromJSON:
             data = json.loads(data)
-        self.__dict__.update(data)
+        if data:
+            self.__dict__.update(data)
+        if plugin:
+            self.pluginUUID = plugin.pluginUUID
+            self.plugin_id = plugin.id
+            self.interval = plugin.interval
+            self.ssh_wrapper = plugin.ssh_wrapper
+            self.script = plugin.script
+            self.params = plugin.params
+        if host:
+            self.hostUUID = host.hostUUID
+            self.host_id = host.id
+            self.ipaddress = host.ipaddress
+            self.hostname = host.hostname
+            self.login = host.login
+        if suite:
+            self.suite_id = suite.id
+        if subnet:
+            self.subnet_id = subnet.id
+            self.suite_id = subnet.suite_id
         scheduled_time = dt.datetime.now()
 
     def getScheduleJobID(self):

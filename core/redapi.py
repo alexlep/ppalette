@@ -5,7 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from monitoring import RRD
 from core.models import Host, Subnet, Plugin, History, Suite, Status
 #bcrypt, Schedule
-from tools import resolveIP, validateIP
+from tools import validateIP, resolveIP
+from apitools import apiValidateMandParam, apiValidateIntegerParam,\
+                     apiValidateTriggerParam, apiValidateIpParam
 import time
 
 VIOLET = 'violet'
@@ -172,31 +174,21 @@ def initRedApiBP(scheduler, db_session):
         """
         exitcode = 200
         if request.method == 'GET':
-            try:
-                res, exitcode = apiHostGetRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiHostGetRequest(request.args)
         elif request.method == 'POST':
-            try:
-                res, exitcode = apiHostPostRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiHostPostRequest(request.args)
         elif request.method == 'PUT':
-            try:
-                res, exitcode = apiHostPutRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiHostPutRequest(request.args)
         elif request.method == 'DELETE':
-            try:
-                res, exitcode = apiHostDeleteRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiHostDeleteRequest(request.args)
         return jsonify(**res), exitcode
 
     def apiHostGetRequest(params):
-        ip = params.get('ip') or '127.0.0.1'
-        if not validateIP(ip):
-            raise AssertionError
+        try:
+            ip = apiValidateIpParam('ip', params)
+        except ValueError as ve:
+            res = dict(message=ve.message)
+            return (res, 501)
         host = db_session.query(Host).\
                     filter(Host.ipaddress == ip).first()
         if not host:
@@ -225,56 +217,50 @@ def initRedApiBP(scheduler, db_session):
         return (res, exitcode)
 
     def apiHostPutRequest(params):
-        ip = params.get('ip')
-        if not validateIP(ip):
-            raise AssertionError
+        try:
+            ip = apiValidateIpParam('ip', params)
+        except ValueError as ve:
+            res = dict(message=ve.message)
+            return (res, 501)
         host = db_session.query(Host).\
                     filter(Host.ipaddress == ip).first()
         if not host:
-            res = dict(message = 'Host with provided IP not found')
+            res = dict(message='Host with provided IP not found')
             exitcode = 404
         else:
-            if not params.get('maintenance'):
-                host_upd = updateHostParams(host, *parseParamsForHost(params))
-                scheduler.activateHostChecks(host_upd)
-                db_session.add(host_upd)
+            try:
+                host_params = parseParamsForHost(params=params, edit=True)
+                host.updateParams(*host_params)
+                db_session.add(host)
+            except ValueError as ve:
+                res = dict(message=ve.message)
+                return (res, 501)
+            try:
                 db_session.commit()
                 res = dict(message = 'Host updated')
                 exitcode = 200
-            else:
-                if params.get('maintenance') == 'on':
-                    host.maintenanceON()
-                    scheduler.pauseHostChecks(host)
-                    db_session.add(host)
-                    db_session.commit()
-                    res = dict(message = 'Host updated')
-                    exitcode = 200
-                elif params.get('maintenance') == 'off':
-                    host.maintenanceOFF()
-                    if not scheduler.activateHostChecks(host):
-                        res = dict(message = 'No suite attached to host!')
-                        exitcode = 501
-                    else:
-                        db_session.add(host)
-                        db_session.commit()
-                        res = dict(message = 'Host updated')
-                        exitcode = 200
+            except IntegrityError as e:
+                db_session.rollback()
+                res = dict(message = e.message)
+                exitcode = 501
         return (res, exitcode)
 
     def apiHostDeleteRequest(params):
-        ip = params.get('ip')
-        if not validateIP(ip):
-            raise AssertionError
+        try:
+            ip = apiValidateIpParam('ip', params)
+        except ValueError as ve:
+            res = dict(message=ve.message)
+            return (res, 501)
         host = db_session.query(Host).\
                     filter(Host.ipaddress == ip).first()
         if not host:
-            res = dict(message = 'Host with provided IP not found')
+            res = dict(message='Host with provided IP not found')
             exitcode = 404
         else:
             try:
                 db_session.delete(host)
                 db_session.commit()
-                scheduler.removeHostChecks(hosts)
+                #scheduler.removeHostChecks(host)
                 res = dict(message = 'Host with provided IP was deleted')
                 exitcode = 200
             except Exception as e:
@@ -282,25 +268,8 @@ def initRedApiBP(scheduler, db_session):
                 exitcode = 501
         return (res, exitcode)
 
-    def updateHostParams(host, ip, suiteID, subnetID, hostname, login):
-        if hostname:
-            host.hostname = hostname
-        if login:
-            host.login = logins
-        if subnetID:
-            host.subnet_id = subnetID
-        if suiteID:
-            if host.suite_id:
-                scheduler.removeHostChecks(host)
-                host.stats[:] = list()
-            host.suite_id = suiteID
-        return host
-
-    def parseParamsForHost(params):
+    def parseParamsForHost(params, edit = False):
         suiteID = subnetID = None
-        ip = params.get('ip')
-        if not validateIP(ip):
-            raise ValueError("Failed to validate provided IP")
         suite = params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
@@ -317,11 +286,16 @@ def initRedApiBP(scheduler, db_session):
                 if not suite:
                     suiteID = subnetDB.suite.id
                 subnetID = subnetDB.id
-        hostname = params.get('hostname')
-        if not hostname:
-            hostname = resolveIP(ip)
         login = params.get('login')
-        return (ip, suiteID, subnetID, hostname, login)
+        if not edit:
+            ip = apiValidateIpParam('ip', params)
+            hostname = params.get('hostname') or resolveIP(ip)
+            res = (ip, suiteID, subnetID, hostname, login)
+        else:
+            maintenance = apiValidateTriggerParam('maintenance', params)
+            hostname = params.get('hostname')
+            res = (suiteID, subnetID, hostname, login, maintenance)
+        return res
 
     ############################################################################
 
@@ -345,35 +319,26 @@ def initRedApiBP(scheduler, db_session):
         """
         exitcode = 200
         if request.method == 'GET':
-            try:
-                res, exitcode = apiPluginGetRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiPluginGetRequest(request.args)
         elif request.method == 'POST':
-            try:
-                res, exitcode = apiPluginPostRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiPluginPostRequest(request.args)
         elif request.method == 'PUT':
-            try:
-                res, exitcode = apiPluginPutRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiPluginPutRequest(request.args)
         elif request.method == 'DELETE':
-            try:
-                res, exitcode = apiPluginDeleteRequest(request.args)
-            except AssertionError:
-                abort(404)
+            res, exitcode = apiPluginDeleteRequest(request.args)
         return jsonify(**res), exitcode
 
     def apiPluginGetRequest(params):
-        customname = params.get('customname')
-        if not customname:
-            raise AssertionError
+        try:
+            customname = apiValidateMandParam('customname', params)
+        except ValueError as ve:
+            res = dict(message = ve.message)
+            return (res, 501)
         plugin = db_session.query(Plugin).\
                     filter(Plugin.customname == customname).first()
         if not plugin:
-            res = dict(message = 'Plugin with provided customname not found')
+            res = dict(message = 'Plugin with name {} not found'.\
+                       format(customname))
             exitcode = 404
         else:
             res = plugin.APIGetDict(short = False)
@@ -386,9 +351,11 @@ def initRedApiBP(scheduler, db_session):
         except ValueError as ve:
             res = dict(message = ve.message)
             return (res, 501)
-        db_session.add(Plugin(*params_checked))
+        newPlugin = Plugin(*params_checked)
+        db_session.add(newPlugin)
         try:
             db_session.commit()
+            scheduler.registerJob(newPlugin)
             res = dict(message = 'Plugin successfully added')
             exitcode = 200
         except IntegrityError as e:
@@ -401,20 +368,24 @@ def initRedApiBP(scheduler, db_session):
         pass
 
     def apiPluginDeleteRequest(params):
-        customname = params.get('customname')
-        if not customname:
-            raise AssertionError
+        try:
+            customname = apiValidateMandParam('customname', params)
+        except ValueError as ve:
+            res = dict(message = ve.message)
+            return (res, 501)
         plugin = db_session.query(Plugin).\
                     filter(Plugin.customname == customname).first()
         if not plugin:
-            res = dict(message = 'Plugin with provided customname not found')
+            res = dict(message = 'Plugin with name {} not found'.\
+                       format(customname))
             exitcode = 404
         else:
             try:
                 db_session.delete(plugin)
                 db_session.commit()
-                #scheduler.removeHostChecks(hosts)
-                res = dict(message = 'Plugin with provided customname was deleted')
+                scheduler.remove_job(plugin.pluginUUID)
+                res = dict(message='Plugin with name {} was deleted'.\
+                           format(customname))
                 exitcode = 200
             except Exception as e:
                 res = dict(message = e.message)
@@ -422,38 +393,22 @@ def initRedApiBP(scheduler, db_session):
         return (res, exitcode)
 
     def parseParamsForPlugin(params):
-        customname = params.get('customname')
-        if not customname:
-            raise ValueError("customname is not set")
-        interval = params.get('interval')
-        if interval:
-            try:
-                int(interval)
-            except:
-                raise ValueError("interval value is incorrect")
-        ssh_wrapper = params.get('ssh_wrapper') or False
-        if ssh_wrapper:
-            if ssh_wrapper == "on":
-                ssh_wrapper = True
-            else:
-                raise ValueError("ssh_wrapper parameter is incorrect")
-        script = params.get('script')
-        if not script:
-            raise ValueError("script name is not set")
+        script = apiValidateMandParam('script', params)
+        customname = apiValidateMandParam('customname', params)
+        interval = apiValidateIntegerParam('interval', params)
         script_params = params.get('params')
+        ssh_wrapper = apiValidateTriggerParam('ssh_wrapper', params)
         return (script, customname, interval, script_params, ssh_wrapper)
 
     ############################################################################
 
     @redapiBP.route('/redapi/scheduler/jobs')
     def getSchedulerJobs():
-        """
-        Temporary solution without pagination
-        """
         jobs = scheduler.get_jobs()
         jobs_list = list()
         for job in jobs:
-            jobs_list.append(dict(name=job.name, id=job.id))
+            jobs_list.append(dict(name=job.name, id=job.id,
+                                  next_run_time=job.next_run_time))
         return jsonify(*jobs_list)
 
     return redapiBP
