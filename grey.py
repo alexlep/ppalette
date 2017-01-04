@@ -45,7 +45,7 @@ class Grey(object):
             self.updateStatusTable(msg)
             if self.collectHistory:
                 self.updateHistory(msg)
-        elif 'task':
+        elif msg.type == 'task':
             if msg.action == 'discovery':
                 self.log.info(self.tryAddingNewHost(msg))
 
@@ -89,33 +89,23 @@ class Grey(object):
                                 filter(Status.last_exitcode == 2, Host.maintenance == False).\
                                 count()
         RRD(self.rrdCommon).insertValues(status)
-        '''
-        if stats.identifier not in self.Violets.keys():
-            stats.setConnectionTime()
-            self.Violets[stats.identifier] = stats.__dict__
-        else:
-            self.Violets[stats.identifier].update(stats.__dict__)
-        for v in self.Violets.values():
-            try: # PYTHON bug here, strptime in threads
-                v.performChecks()
-            except:
-                pass
-        '''
+
     def updateStatusTable(self, msg):
-        updateQ = Status.__table__.update().where(and_(Status.plugin_id==msg.pluginid, Status.host_id==msg.hostid)).\
-            values(last_status=msg.output, last_exitcode = msg.exitcode,
-                   last_check_run = msg.time, scheduled_check_time = msg.scheduled_time,
-                   interval = msg.interval)
+        updateQ = Status.__table__.update().\
+                  where(and_(Status.plugin_id == msg.plugin_id,
+                             Status.host_id == msg.host_id)).\
+                  values(last_status=msg.output, last_exitcode = msg.exitcode,
+                         last_check_run=msg.time,
+                         scheduled_check_time=msg.scheduled_time,
+                         interval=msg.interval)
         try:
             if not db_session.execute(updateQ).rowcount:
-                insertQ = insert(Status).values(statusid = getUniqueID(),
-                                        plugin_id = msg.pluginid,
-                                        host_id = msg.hostid,
-                                        last_status = msg.output,
-                                        last_exitcode = msg.exitcode,
-                                        scheduled_check_time = msg.scheduled_time,
-                                        last_check_run = msg.time,
-                                        interval = msg.interval)
+                insertQ = insert(Status).\
+                          values(plugin_id=msg.plugin_id, host_id=msg.host_id,
+                                 last_status=msg.output,
+                                 last_exitcode=msg.exitcode,
+                                 scheduled_check_time=msg.scheduled_time,
+                                 last_check_run=msg.time, interval=msg.interval)
                 db_session.execute(insertQ)
         except Exception as e:
             print e
@@ -127,26 +117,24 @@ class Grey(object):
         h = History(msg)
         db_session.add(h)
         db_session.commit()
-        return
 
     def tryAddingNewHost(self, msg):
         if msg.exitcode == 0:
-            existingHost = db_session.query(Host).filter(Host.ipaddress == msg.ipaddress).first()
+            existingHost = db_session.query(Host).\
+                           filter(Host.ipaddress == msg.ipaddress).\
+                           first()
             if (not existingHost):
-                newHost = Host()
-                newHost.hostUUID = getUniqueID()
-                newHost.hostname = msg.hostname
-                newHost.ipaddress = msg.ipaddress
-                newHost.subnet_id = msg.subnet_id
-                newHost.suite_id = msg.suite_id
-                newHost.maintenance = True
+                newHost = Host(ip=msg.ipaddress, suiteID=msg.suite_id,
+                               subnetID=msg.subnet_id, hostname=msg.hostname)
                 db_session.add(newHost)
                 db_session.commit()
-                result = "AutoDiscovery: ip {0} was successfully added".format(msg.ipaddress)
+                result = "AutoDiscovery: ip {0} was successfully added".\
+                         format(msg.ipaddress)
             else:
                 result = "AutoDiscovery: host with ip {0} is already in db. Skipping.".format(msg.ipaddress)
         else:
-            result = "AutoDiscovery: ip {0} is not reachable. Skipping.".format(msg.ipaddress)
+            result = "AutoDiscovery: ip {0} is not reachable. Skipping.".\
+                     format(msg.ipaddress)
         print result
         return result
 

@@ -56,16 +56,7 @@ class Violet(object):
         self.factory.goHome()
         print 'workers_went_home'
         sys.exit(0)
-    '''
-    def _initScheduler (self):
-        scheduler = BackgroundScheduler ({'apscheduler.executors.default': {
-        'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
-        'max_workers': '1'
-        }})
-        scheduler.add_job(self._sendStats, args=[self.config.heartbeat_interval], trigger = 'interval', id = self.identifier, seconds = ,
-                             misfire_grace_time=10)
-        return scheduler
-    '''
+
     def _sendStats(self, interval):
         statistics =  self.factory.gatherStats(interval)
         statistics.identifier = self.identifier

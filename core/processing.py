@@ -58,7 +58,6 @@ class Consumer(Thread):
 
     def run(self):
         counter = 0
-        print "ololo"
         while self.active:
             time.sleep(0.01)
             if len(self.mqQueue) > 0:
@@ -197,10 +196,10 @@ class Factory(object):
         for w in self.workers: # start each worker for executing plugins
             w.daemon = True
             w.start()
+            print "{} started".format(w.name)
         for c in self.consumers: # start each worker for executing plugins
             c.daemon = True
             c.start()
-            print ' in started'
         for s in self.senders: # start each worker for executing plugins
             s.daemon = True
             s.start()
