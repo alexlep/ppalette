@@ -60,35 +60,14 @@ class Stats(object):
     def setConnectionTime(self):
         self.connection_time = dt.datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
 
-    def performChecks(self):
-        """
-        Check when heartbeat was last time updated.
-        if interval * 3 = warning (status 1)
-        if interval * 10 = error (status 2)
-        """
-        current_date = dt.datetime.now()
-        last_hb_sent = dt.datetime.strptime(self.last_update_time, "%H:%M:%S:%d:%m:%Y")
-        diff = (current_date - last_hb_sent).seconds
-        if diff > (self.interval * 10):
-            self.status = 2
-        elif diff > (self.interval * 3):
-            self.status = 1
-        else:
-            self.status = 0
-
 class RRD(object):
     def __init__(self, filename, statType = COMMON):
         self.rrd = filename
         if statType == COMMON:
-            self.paramsToMonitor = ['checks_ok',
-                                      'checks_warn',
-                                      'checks_error',
-                                      'checks_active'
-                                      ]
+            self.paramsToMonitor = ['checks_ok', 'checks_warn', 'checks_error',
+                                    'checks_active']
         elif VIOLET:
-            self.paramsToMonitor = ['input_queue_size',
-                                      'throughput'
-                                      ]
+            self.paramsToMonitor = ['input_queue_size', 'throughput']
 
     def createFile(self, statdata):
         """
@@ -101,7 +80,6 @@ class RRD(object):
             start_timestamp = int(time.mktime(dt.datetime.strptime(statdata.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())) - statdata.interval
         except Exception as e:
             print 'oops', e
-            print dir(e)
             start_timestamp = int(time.mktime(dt.datetime.now().timetuple())) - statdata.interval
         args = [self.rrd,
                 "--start", str(start_timestamp),
@@ -124,7 +102,7 @@ class RRD(object):
     def getLatestUpdate(self):
         return rrdtool.lastupdate(self.rrd)
 
-    def getChartData(self, hours = 6, grades = 10):
+    def getChartData(self, hours=6, grades=10):
         stats = dict()
         stats['ds'] = dict()
         stats['meta'] = dict()
@@ -145,7 +123,7 @@ class RRD(object):
         start = raw_stats[0]['meta']['start']
         step = raw_stats[0]['meta']['step']
         stats['meta']['labels'] = [ (dt.datetime.fromtimestamp(start)\
-                                            + dt.timedelta(seconds = step * val))\
+                                            + dt.timedelta(seconds=step*val))\
                                             .strftime("%H:%M")\
                                             for val in range(1, rows-1) ] # first and last ones
         return stats
@@ -166,11 +144,10 @@ class RRD(object):
     def _getDataSourcesString(self, dataSources):
         return str(":".join(dataSources))
 
-    def _getDataValuesString(self, params, useStatDate = False):
+    def _getDataValuesString(self, params, useStatDate=False):
         try:
             stime = str(int(time.mktime(dt.datetime.strptime(params.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())))
         except:
             stime = 'N' # now
-        values =   [str(int(params.__dict__[ds]))\
-                    for ds in params.data_sources]
+        values = [str(int(params.__dict__[ds])) for ds in params.data_sources]
         return "{0}:{1}".format(stime, ":".join(values))

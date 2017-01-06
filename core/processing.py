@@ -90,7 +90,7 @@ class Worker(Process):
     """
     http://jhshi.me/2015/12/27/handle-keyboardinterrupt-in-python-multiprocessing/index.html
     """
-    def __init__(self, InPQueue, OutPQueue, logger, ssh_config, checks = {}):
+    def __init__(self, InPQueue, OutPQueue, logger, ssh_config, checks={}):
         super(Worker, self).__init__()
         self.in_process_queue = InPQueue
         self.out_process_queue = OutPQueue
@@ -186,11 +186,12 @@ class Factory(object):
         self.consumers = list()
 
     def prepareWorkers(self, procCount, logger, checks, ssh_config):
-        self.workers =  [ Worker(InPQueue = self.in_process_queue_f,
-                        OutPQueue = self.out_process_queue_f,
-                        logger = logger,
-                        checks = checks,
-                        ssh_config = ssh_config) for _ in range(procCount) ]
+        self.workers =  [ Worker(InPQueue=self.in_process_queue_f,
+                                 OutPQueue=self.out_process_queue_f,
+                                 logger=logger,
+                                 checks=checks,
+                                 ssh_config=ssh_config)\
+                                 for _ in range(procCount) ]
 
     def startWork(self):
         for w in self.workers: # start each worker for executing plugins
