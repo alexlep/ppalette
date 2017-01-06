@@ -43,7 +43,7 @@ class Suite(RedBase):
     plugins = relationship('Plugin',
                            secondary=pluginsToSuites,
                            backref=backref('suitos', lazy='dynamic'))
-    def __init__(self, name, ipsDB=None, subnetsDB=None, pluginsDB=None):
+    def __init__(self, name, ipsDB=None, pluginsDB=None, subnetsDB=None):
         self.name = name
         if ipsDB:
             self.host = ipsDB
@@ -52,7 +52,7 @@ class Suite(RedBase):
         if pluginsDB:
             self.plugins = pluginsDB
 
-    def updateParams(self, ipsDB=None, subnetsDB=None, pluginsDB=None):
+    def updateParams(self, ipsDB=None, pluginsDB=None, subnetsDB=None):
         if ipsDB:
             self.host = ipsDB
         if subnetsDB:

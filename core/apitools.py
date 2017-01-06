@@ -186,11 +186,10 @@ class apiSingleCallHandler(object):
         return res
 
     def parseParamsForSuite(self):
-        ipsDB = pluginsDB = subnetsDB = None
         name = apiValidateMandParam(self.identificator, self.params)
         subnets = self.params.getlist('subnetname')
         ips = self.params.getlist('ipaddress')
-        plugins = self.params.getlist('pluginname')
+        plugins = self.params.getlist('plugin')
         ipsDB = self.genRecList(ips, Host) if ips else None
         pluginsDB = self.genRecList(plugins, Plugin) if plugins \
                                                           else None
