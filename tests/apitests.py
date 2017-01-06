@@ -75,6 +75,26 @@ class apiTestClass(unittest.TestCase):
         result = self.app.get('/redapi/hosts')
         self.assertEqual(result.status_code, 200)
 
+    def test0910(self):
+        # put_edit_localhost maintenance off
+        result = self.app.put('/redapi/host?ipaddress=127.0.0.1&maintenance=off')
+        self.assertEqual(result.status_code, 200)
+
+    def test0920(self):
+        # put_edit_google maintenance off
+        result = self.app.put('/redapi/host?ipaddress=216.58.214.206&maintenance=off')
+        self.assertEqual(result.status_code, 200)
+
+    def test0930(self):
+        # put_edit_bbc maintenance off
+        result = self.app.put('/redapi/host?ipaddress=212.58.246.90&maintenance=off')
+        self.assertEqual(result.status_code, 200)
+
+    def test0940(self):
+        # put_edit_newyorker maintenance off
+        result = self.app.put('/redapi/host?ipaddress=151.101.0.239&maintenance=off')
+        self.assertEqual(result.status_code, 200)
+
     # Plugin API tests
     def test1000(self):
         # post_create_plugin
@@ -102,7 +122,7 @@ class apiTestClass(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
 
     def test1305(self):
-        # delete_remove_plugin check_mysql_linux_test
+        # get_removed_plugin check_mysql_linux_test, should be 404
         result = self.app.get('/redapi/plugin?customname=check_mysql_linux_test')
         self.assertEqual(result.status_code, 404)
 
@@ -111,14 +131,29 @@ class apiTestClass(unittest.TestCase):
         result = self.app.post('/redapi/plugin?customname=check_ping1&script=check_ping')
         self.assertEqual(result.status_code, 200)
 
-    def test1500(self):
+    def test1410(self):
         # post_create_plugin
         result = self.app.post('/redapi/plugin?customname=check_ping2&script=check_ping')
         self.assertEqual(result.status_code, 200)
 
-    def test1600(self):
+    def test1420(self):
         # post_create_plugin
         result = self.app.post('/redapi/plugin?customname=check_https_local&script=check_https')
+        self.assertEqual(result.status_code, 200)
+
+    def test1430(self):
+        # post_create_plugin
+        result = self.app.put('/redapi/plugin?customname=check_ping1&interval=10')
+        self.assertEqual(result.status_code, 200)
+
+    def test1440(self):
+        # post_create_plugin
+        result = self.app.put('/redapi/plugin?customname=check_ping2&interval=15')
+        self.assertEqual(result.status_code, 200)
+
+    def test1450(self):
+        # post_create_plugin
+        result = self.app.put('/redapi/plugin?customname=check_https_local&interval=13')
         self.assertEqual(result.status_code, 200)
 
     def test5000(self):
