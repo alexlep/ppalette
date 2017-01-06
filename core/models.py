@@ -43,6 +43,22 @@ class Suite(RedBase):
     plugins = relationship('Plugin',
                            secondary=pluginsToSuites,
                            backref=backref('suitos', lazy='dynamic'))
+    def __init__(self, name, ipsDB=None, subnetsDB=None, pluginsDB=None):
+        self.name = name
+        if ipsDB:
+            self.host = ipsDB
+        if subnetsDB:
+            self.subnet = subnetsDB
+        if pluginsDB:
+            self.plugins = pluginsDB
+
+    def updateParams(self, ipsDB=None, subnetsDB=None, pluginsDB=None):
+        if ipsDB:
+            self.host = ipsDB
+        if subnetsDB:
+            self.subnet = subnetsDB
+        if pluginsDB:
+            self.plugins = pluginsDB
 
     def __unicode__(self):
         return self.name
@@ -72,7 +88,7 @@ class Plugin(RedBase):
 
     def __init__(self, script=None, customname=None,
                  interval=None, params=None,
-                 ssh_wrapper=None, suiteDB=None):
+                 ssh_wrapper=None, suitesDB=None):
         self.script = script
         self.customname = customname
         self.params = params
@@ -80,21 +96,19 @@ class Plugin(RedBase):
             self.ssh_wrapper = ssh_wrapper
         if interval:
             self.interval = interval
-        if suiteDB:
-            if suiteDB not in self.suites:
-                self.suites.append(suiteDB)
+        if suitesDB:
+            self.suites = suitesDB
 
     def updateParams(self, script=None, interval=None, params=None,
-                     ssh_wrapper=None, suiteDB=None):
+                     ssh_wrapper=None, suitesDB=None):
         if script:
             self.script = script
         if interval:
             self.interval = interval
         if params:
             self.params = params
-        if suiteDB:
-            if suiteDB not in self.suites:
-                self.suites.append(suiteDB)
+        if suitesDB:
+            self.suites = suitesDB
         if ssh_wrapper:
             self.ssh_wrapper = ssh_wrapper
 
