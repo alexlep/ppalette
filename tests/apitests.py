@@ -20,16 +20,6 @@ class apiTestClass(unittest.TestCase):
     def tearDown(self):
         pass
     # Host API tests
-    def test0100(self):
-        # check_hosts
-        result = self.app.get('/redapi/hosts')
-        self.assertEqual(result.status_code, 200)
-
-    def test0200(self):
-        # check_status
-        result = self.app.get('/redapi/status')
-        self.assertEqual(result.status_code, 200)
-
     def test0300(self):
         # post_create_localhost
         result = self.app.post('/redapi/host?ipaddress=127.0.0.1')
@@ -201,5 +191,31 @@ class apiTestClass(unittest.TestCase):
         result = self.app.get('/redapi/suite?name=defaultSuite')
         self.assertEqual(result.status_code, 200)
 
+
+    # apiListCallHandler tests
+    def test6100(self):
+        # check_hosts
+        result = self.app.get('/redapi/hosts')
+        self.assertEqual(result.status_code, 200)
+
+    def test6102(self):
+        # check_plugins
+        result = self.app.get('/redapi/plugins')
+        self.assertEqual(result.status_code, 200)
+
+    def test6104(self):
+        # check_suites
+        result = self.app.get('/redapi/suites')
+        self.assertEqual(result.status_code, 200)
+
+    def test6106(self):
+        # check_subnets should fail as of now, no subnets where added
+        result = self.app.get('/redapi/subnets')
+        self.assertEqual(result.status_code, 400)
+
+    def test6108(self):
+        # check_status
+        result = self.app.get('/redapi/status')
+        self.assertEqual(result.status_code, 200)
 if __name__ == '__main__':
     unittest.main()
