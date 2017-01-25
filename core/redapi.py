@@ -1,19 +1,12 @@
 from flask import Blueprint, abort, jsonify, request, url_for
-from sqlalchemy.orm import contains_eager
-from sqlalchemy.exc import IntegrityError
 
 from monitoring import RRD
 from models import Host, Subnet, Plugin, History, Suite, Status
-from tools import validateIP, resolveIP
-from apitools import apiSingleCallHandler
-from core.database import db_session
+from apitools import apiSingleCallHandler, apiListCallHandler
 
 VIOLET = 'violet'
 COMMON = 'common'
 PER_PAGE = 10
-STATUS_OK = 0
-STATUS_WARNING = 1
-STATUS_ERROR = 2
 
 def initRedApiBP(scheduler):
     redapiBP = Blueprint('redapi_blueprint', __name__)
@@ -86,97 +79,33 @@ def initRedApiBP(scheduler):
     @redapiBP.route('/redapi/status/<pluginType>')
     @redapiBP.route('/redapi/status/<pluginType>/<int:page>')
     def getPluginStatus(pluginType='all', page=1):
-        if page < 1:
-            fullres = dict(message='Invalid page parameter')
-            exitcode = 400
-        else:
-            if pluginType == "all":
-                hosts_query = db_session.query(Host)#.all()
-            elif pluginType == "error":
-                hosts_query = generateHostStatsQuery(STATUS_ERROR)
-            elif pluginType == "warn":
-                hosts_query = generateHostStatsQuery(STATUS_WARNING)
-            elif pluginType == "ok":
-                hosts_query = generateHostStatsQuery(STATUS_OK)
-            else:
-                abort(404)
-            hosts_status, total, total_pages = paginationOutputOfQuery(hosts_query,
-                                                                       page)
-            res = [check.APIGetDict(short=False) for check in hosts_status]
-            if page != 1 and not res:
-                fullres = dict(message='Wrong page number or missing data')
-                exitcode = 400
-            else:
-                fullres = dict(objects=res, total_objects=total, total_pages=total_pages,
-                           page=page, per_page=PER_PAGE)
-                exitcode = 200
-        return jsonify(**fullres), exitcode
+        res, exitcode = apiListCallHandler(Host, page, PER_PAGE,
+                                           pluginType).run()
+        return jsonify(**res), exitcode
 
     @redapiBP.route('/redapi/plugins')
     @redapiBP.route('/redapi/plugins/<int:page>')
     def getPluginsList(page=1):
-        if page < 1:
-            fullres = dict(message='Invalid page parameter')
-            exitcode = 400
-        else:
-            plugins_query = db_session.query(Plugin)
-            plugins, total, total_pages = paginationOutputOfQuery(plugins_query, page)
-            res = [plugin.APIGetDict(short=False) for plugin in plugins]
-            if not res:
-                fullres = dict(message='Wrong page number or missing data')
-                exitcode = 400
-            else:
-                fullres = dict(objects=res, total_objects=total, total_pages=total_pages,
-                           page=page, per_page=PER_PAGE)
-                exitcode = 200
-        return jsonify(**fullres), exitcode
+        res, exitcode = apiListCallHandler(Plugin, page, PER_PAGE).run()
+        return jsonify(**res), exitcode
 
     @redapiBP.route('/redapi/suites')
     @redapiBP.route('/redapi/suites/<int:page>')
     def getSuitesList(page=1):
-        if page < 1:
-            abort(404)
-        suites_query = db_session.query(Suite)
-        suites, total, total_pages = paginationOutputOfQuery(suites_query, page)
-        res = [suite.APIGetDict(short=False) for suite in suites]
-        return jsonify(*res)
+        res, exitcode = apiListCallHandler(Suite, page, PER_PAGE).run()
+        return jsonify(**res), exitcode
 
     @redapiBP.route('/redapi/subnets')
     @redapiBP.route('/redapi/subnets/<int:page>')
     def getSubnetsList(page=1):
-        if page < 1:
-            abort(404)
-        subnets_query = db_session.query(Subnet)
-        subnets, total, total_pages = paginationOutputOfQuery(subnets_query, page)
-        res = [subnet.APIGetDict(short=False) for subnet in subnets]
-        return jsonify(*res)
+        res, exitcode = apiListCallHandler(Subnet, page, PER_PAGE).run()
+        return jsonify(**res), exitcode
 
     @redapiBP.route('/redapi/hosts')
     @redapiBP.route('/redapi/hosts/<int:page>')
     def getHostsList(page=1):
-        if page < 1:
-            abort(404)
-        hosts_query = db_session.query(Host)
-        hosts, total, total_pages = paginationOutputOfQuery(hosts_query, page)
-        res = [host.APIGetDict(short=False) for host in hosts]
-        return jsonify(*res)
-
-    def generateHostStatsQuery(exitcode):
-        return db_session.query(Host).join(Host.stats).\
-                options(contains_eager(Host.stats)).\
-                filter(Status.last_exitcode == exitcode)
-
-    def paginationOutputOfQuery(query, page, perPage=PER_PAGE):
-        items = query.limit(perPage).offset((page - 1) * perPage).all()
-        if page == 1 and len(items) < perPage:
-            total = len(items)
-            total_pages = 1
-        else:
-            total = query.order_by(None).count()
-            total_pages = total/perPage
-            if total % perPage:
-                total_pages += 1
-        return (items, total, total_pages)
+        res, exitcode = apiListCallHandler(Host, page, PER_PAGE).run()
+        return jsonify(**res), exitcode
 
     ############################################################################
 

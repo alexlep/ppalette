@@ -1,6 +1,10 @@
-from tools import validateIP, resolveIP
+from tools import validateIP, resolveIP, validateInt, validatePage
 from models import Host, Subnet, Plugin, History, Suite, Status
 from core.database import db_session
+
+STATUS_OK = 0
+STATUS_WARNING = 1
+STATUS_ERROR = 2
 
 def apiValidateMandParam(option, params):
     value = params.get(option)
@@ -11,10 +15,7 @@ def apiValidateMandParam(option, params):
 def apiValidateIntegerParam(option, params):
     value = params.get(option)
     if value:
-        try:
-            int(value)
-        except:
-            raise ValueError("{} value is incorrect".format(option))
+        validateInt(value)
     return value
 
 def apiValidateTriggerParam(option, params):
@@ -245,3 +246,64 @@ class apiSingleCallHandler(object):
             else:
                 res.append(record)
         return res
+
+class apiListCallHandler(object):
+    def __init__(self, dbmodel, page, perpage, pluginType=None):
+        self.dbmodel = dbmodel
+        self.page = page
+        self.perpage = perpage
+        self.pluginType = pluginType
+
+    def run(self):
+        try:
+            validatePage(self.page)
+        except ValueError as ve:
+            fullres = dict(message=ve.message)
+            exitcode = 400
+        else:
+            if not self.pluginType:
+                model_query = db_session.query(self.dbmodel)
+            else:
+                model_query = self.getStatusQuery(self.pluginType)
+            objects, total, total_pages = self.paginationQuery(model_query)
+            res = [obj.APIGetDict(short=False) for obj in objects]
+            if not res:
+                fullres = dict(message='Wrong page number or missing data')
+                exitcode = 400
+            else:
+                fullres = dict(objects=res, total_objects=total,
+                               total_pages=total_pages,
+                               page=self.page, per_page=self.perpage)
+                exitcode = 200
+        return (fullres, exitcode)
+
+    def getStatusQuery(self, pluginType):
+        if pluginType == "all":
+            st_query = db_session.query(Host)
+        elif pluginType == "error":
+            st_query = self.generateHostStatsQuery(STATUS_ERROR)
+        elif pluginType == "warn":
+            st_query = self.generateHostStatsQuery(STATUS_WARNING)
+        elif pluginType == "ok":
+            st_query = self.generateHostStatsQuery(STATUS_OK)
+        else:
+            raise ValueError('Plugin type is not in (all,error,warn,ok)')
+        return st_query
+
+    def generateHostStatsQuery(self, exitcode):
+        return db_session.query(Host).join(Host.stats).\
+                options(contains_eager(Host.stats)).\
+                filter(Status.last_exitcode == exitcode)
+
+    def paginationQuery(self, query):
+        items = query.limit(self.perpage).\
+                      offset((self.page-1) * self.perpage).all()
+        if self.page == 1 and len(items) < self.perpage:
+            total = len(items)
+            total_pages = 1
+        else:
+            total = query.order_by(None).count()
+            total_pages = total / self.perpage
+            if total % self.perpage:
+                total_pages += 1
+        return (items, total, total_pages)

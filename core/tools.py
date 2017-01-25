@@ -207,3 +207,15 @@ def validateIP(ipaddress):
     except socket.error:
         res = False
     return res
+
+def validateInt(value):
+    try:
+        int(value)
+    except:
+        raise ValueError("{} value is incorrect".format(value))
+    return value
+
+def validatePage(value):
+    if validateInt(value) < 1:
+        raise ValueError("{} value is below 1".format(value))
+    return True
