@@ -1,0 +1,7 @@
+Flask
+SQLAlchemy
+python-rrdtool
+paramiko
+apscheduler
+rabbitpy
+requests

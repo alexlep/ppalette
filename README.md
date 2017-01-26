@@ -19,11 +19,14 @@ Project is written in Python, 2.x branch.
 
 At current phase I'm jumping from one library/technology to another without any
 remorse.
+
 Naming is inspired by Ephel Duath's Painter's Palette (2003).
 
 ## 3rd party tools
 
 __SQLAlchemy__ - as interface to DB.
+
+__paramiko__ - for ssh connection to remote hosts, by `violet` clients.
 
 __Flask__ - for RESTful API.
 
@@ -31,12 +34,13 @@ __APScheduler__ - as main scheduler to store all the jobs.
 
 __rabbitpy__ - as RabbitMQ connection layer.
 
-__rrdtool__ - to store inner service statistics, and python-rrdtool, binding to
-rrdtool, to manage rrd files.
+__rrdtool__ - to store inner service statistics(version >=1.6, thread-safe),
+and __python-rrdtool__, binding to rrdtool, to manage rrd files.
 
-__rabbitmqadmin.py__ - used for debugging and monitoring RabbitMQ.
+__requests__ - is used for testing, and will be used for commandline utility.
 
-__tornado__ - as a threaded web-server for RESTful API.
+__tornado__ - as a threaded web-server for RESTful API. It's _not_ instaled
+by default.
 
 ## Motivation
 
@@ -44,7 +48,9 @@ First of all - improving my programming skills and self-development.
 
 ## Installation
 
-TOBEDONE
+All the requirements can be found in `requirements.txt` file.
+
+_to be continued_
 
 ## API Reference
 
@@ -52,7 +58,10 @@ TOBEDONE
 
 ## Tests
 
-TOBEDONE
+`apitests.py` - tests API calls. Uses __requests__ to send HTTP requests.
+
+_to be continued_
+
 
 ## Documentation
 

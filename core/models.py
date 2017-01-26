@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import tools
-import architect
 #from flask_bcrypt import Bcrypt
 from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Table, Integer, String, DateTime, Boolean, ForeignKey
