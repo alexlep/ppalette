@@ -1,8 +1,12 @@
 {
   "process_count" : 1,
-  "webapi" : true,
+  "webapi" : {
+    "enabled" : true,
+    "host" : "127.0.0.1",
+    "port" : 5000
+  },
   "queue" : {
-    "host" : "localhost",
+    "host" : "127.0.0.1",
     "port" : 5672,
     "monitoring_port" : 55672,
     "user" : "guest",

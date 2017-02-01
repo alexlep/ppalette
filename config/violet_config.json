@@ -1,5 +1,5 @@
 {
-  "process_count" : 256,
+  "process_count" : 32,
   "queue" : {
     "host" : "localhost",
     "port" : 5672,

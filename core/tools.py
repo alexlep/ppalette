@@ -106,17 +106,9 @@ def parseConfig(config):
         print "Error in opening configuration file {0}: {1}".format(config, ie)
         sys.exit(1)
     config = draftClass(config_data)
-    config.log = draftClass(config.log)
-    try: # ome service don't use MQ, so there is no config for them (blue, for example)
-        config.queue = draftClass(config.queue)
-    except AttributeError:
-        pass
-    try: # same with ssh, for violet
-        config.ssh = draftClass(config.ssh)
-        config.ssh.host_key_file = os.path.expanduser(config.ssh.host_key_file)
-        config.ssh.rsa_key_file = os.path.expanduser(config.ssh.rsa_key_file)
-    except AttributeError:
-        pass
+    for item in config.__dict__.keys():
+        if type(getattr(config, item)) is dict:
+            setattr(config, item, draftClass(getattr(config, item)))
     return config
 
 @time_wrap

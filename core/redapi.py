@@ -1,6 +1,10 @@
+import sys
 from flask import Blueprint, abort, jsonify, request, url_for
+from ipaddress import IPv4Network
 
+from mq import MQ
 from monitoring import RRD
+from tools import Message
 from models import Host, Subnet, Plugin, History, Suite, Status
 from apitools import apiSingleCallHandler, apiListCallHandler
 
@@ -11,6 +15,8 @@ PER_PAGE = 10
 def initRedApiBP(scheduler):
     redapiBP = Blueprint('redapi_blueprint', __name__)
     statRRDFile = 'common_statistics.rrd'
+    apiMQ = MQ(scheduler.config.queue)
+    redApiOutChannel = apiMQ.initOutRabbitPyChannel()
 
     @redapiBP.route('/redapi/monitoring/common')
     @redapiBP.route('/redapi/monitoring/common/<period>')
@@ -198,7 +204,19 @@ def initRedApiBP(scheduler):
 
     ############################################################################
 
-    @redapiBP.route('/redapi/scheduler/jobs')
+    @redapiBP.route('/redapi/subnet', methods=['GET','POST','PUT','DELETE'])
+    def singleSubnetOps():
+        """
+        """
+        handler = apiSingleCallHandler(method=request.method,
+                                       dbmodel=Subnet,
+                                       params=request.args)
+        res, exitcode = handler.run()
+        return jsonify(**res), exitcode
+
+    ############################################################################
+
+    @redapiBP.route('/redapi/scheduler')
     def getSchedulerJobs():
         jobs = scheduler.get_jobs()
         jobs_list = list()
@@ -206,6 +224,47 @@ def initRedApiBP(scheduler):
             jobs_list.append(dict(name=job.name, id=job.id,
                                   next_run_time=job.next_run_time))
         return jsonify(*jobs_list)
+
+    ############################################################################
+
+    @redapiBP.route('/redapi/ops', methods=['GET'])
+    def runOperation():
+        operation = request.args.get('op')
+        print operation
+        arg = request.args.get('arg')
+        print arg
+        if (operation == 'discovery'):
+            if arg:
+                res, exitcode = performDiscovery(arg)
+            else:
+                res = dict(message='Argument for operation {} is not set'.\
+                           format(operation))
+                exitcode = 404
+        else:
+            res = dict(message='Operation {} is not supported'.\
+                       format(operation))
+            exitcode = 404
+        return jsonify(**res), exitcode
+
+    def performDiscovery(subnetname):
+        subnet = Subnet.query.filter_by(name=subnetname).first()
+        if subnet:
+            ipaddresses = list(IPv4Network(u'{0}/{1}'.format(subnet.subnet,
+                                                             subnet.netmask)))
+            for ipaddress in ipaddresses:
+                discoveryJob = Message(subnet=subnet)
+                discoveryJob.ipaddress = str(ipaddress)
+                discoveryJob.action = 'discovery'
+                discoveryJob.type = 'task'
+                apiMQ.sendM(redApiOutChannel, discoveryJob.tojson())
+            res = dict(message='Discovery request for {} was sent to clients'.\
+                       format(subnetname))
+            exitcode = 200
+        else:
+            res = dict(message='Discovery cancelled - {} not found in db'.\
+                       format(subnetname))
+            exitcode = 404
+        return res, exitcode
 
     return redapiBP
 

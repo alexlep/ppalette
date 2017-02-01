@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import tools
-#from flask_bcrypt import Bcrypt
 from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Table, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql.functions import now
@@ -10,7 +9,6 @@ from sqlalchemy.ext.declarative import DeclarativeMeta
 from database import Base
 from datetime import datetime
 
-#bcrypt = Bcrypt()
 pluginsToSuites = Table('pluginsToSuites',
     Base.metadata,
     Column('suites_id', Integer, ForeignKey('suite.id')),
@@ -34,6 +32,8 @@ class RedBase(Base):
 
 class Suite(RedBase):
     __tablename__ = 'suite'
+    paramsShort = ['id', 'name']
+    paramsFull = paramsShort + ['host', 'subnet', 'plugins']
     id = Column(Integer, primary_key=True)
     name = Column(String(100), unique=True)
     description = Column(String(100))
@@ -41,7 +41,7 @@ class Suite(RedBase):
     subnet = relationship('Subnet', back_populates='suite')
     plugins = relationship('Plugin',
                            secondary=pluginsToSuites,
-                           backref=backref('suitos', lazy='dynamic'))
+                           backref=backref('suitos', lazy='select'))
     def __init__(self, name, ipsDB=None, pluginsDB=None, subnetsDB=None):
         self.name = name
         if ipsDB:
@@ -62,14 +62,14 @@ class Suite(RedBase):
     def __unicode__(self):
         return self.name
 
-    def APIGetDict(self, short = True):
-        params = ['id', 'name']
-        if not short:
-            params.extend(['host', 'subnet', 'plugins'])
-        return self.SQLA2Dict(params)
+    def APIGetDict(self, short=True):
+        return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)
 
 class Plugin(RedBase):
     __tablename__ = 'plugin'
+    paramsShort = ['id', 'script','customname', 'interval']
+    paramsFull = paramsShort + ['suites', 'description', 'ssh_wrapper',
+                                'params']
     id = Column(Integer, primary_key=True)
     pluginUUID = Column(String(36), unique=True, default=tools.getUniqueID)
     script = Column(String(100))
@@ -82,7 +82,7 @@ class Plugin(RedBase):
     ssh_wrapper = Column(Boolean(), default = False)
     suites = relationship('Suite',
                           secondary=pluginsToSuites,
-                          backref=backref('pluginos', lazy='dynamic'))
+                          backref=backref('pluginos', lazy='select'))
     stats = relationship('Status', cascade='all, delete-orphan')
 
     def __init__(self, script=None, customname=None,
@@ -115,13 +115,12 @@ class Plugin(RedBase):
         return self.customname
 
     def APIGetDict(self, short=True):
-        params = ['id', 'script','customname', 'interval']
-        if not short:
-            params.extend(['suites', 'description', 'ssh_wrapper', 'params'])
-        return self.SQLA2Dict(params)
+        return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)
 
 class Host(RedBase):
     __tablename__ = 'host'
+    paramsShort = ['id', 'hostname','ipaddress','maintenance']
+    paramsFull = paramsShort + ['stats', 'subnet', 'suite', 'login']
     id = Column(Integer, primary_key=True)
     hostUUID = Column(String(36), unique=True, default=tools.getUniqueID)
     hostname = Column(String(100))
@@ -131,9 +130,9 @@ class Host(RedBase):
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now(), onupdate=now())
     suite_id = Column(Integer, ForeignKey('suite.id'))
-    suite = relationship('Suite', lazy='subquery')
+    suite = relationship('Suite', lazy='select')
     subnet_id = Column(Integer, ForeignKey('subnet.id'))
-    subnet = relationship('Subnet', lazy='subquery')
+    subnet = relationship('Subnet', lazy='select')
     stats = relationship('Status', cascade='all, delete-orphan')
 
     def __init__(self, ip=None, suiteID=None, subnetID=None, hostname=None,
@@ -179,14 +178,14 @@ class Host(RedBase):
         else:
             self.maintenanceOFF()
 
-    def APIGetDict(self, short=True, exitcode = None):
-        params = ['id', 'hostname','ipaddress','maintenance']
-        if not short:
-            params.extend(['stats', 'subnet', 'suite', 'login'])
-        return self.SQLA2Dict(params)
+    def APIGetDict(self, short=True):
+        return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)
 
 class Status(RedBase):
     __tablename__ = 'status'
+    paramsShort = ['plugin','interval', 'last_check_run','last_status',
+              'last_exitcode']
+    paramsFull = paramsShort
     id = Column(Integer, primary_key=True)
     statusid = Column(String(36), unique=True, default=tools.getUniqueID)
     interval = Column(Integer, default=30)
@@ -203,10 +202,7 @@ class Status(RedBase):
         return self.plugin.customname
 
     def APIGetDict(self):
-        params = ['plugin','interval',
-                  'last_check_run','last_status',
-                  'last_exitcode']
-        return self.SQLA2Dict(params)
+        return self.SQLA2Dict(self.paramsShort)
 
 class History(Base):
     __tablename__ = 'history'
@@ -236,6 +232,9 @@ class History(Base):
 
 class Subnet(RedBase):
     __tablename__ = 'subnet'
+    paramsShort = ['id', 'name']
+    paramsFull = paramsShort + ['subnet', 'netmask', 'description','host',
+                                'suite']
     id = Column(Integer, primary_key=True)
     name = Column(String(100), unique=True)
     subnet = Column(String(100))
@@ -245,11 +244,25 @@ class Subnet(RedBase):
     suite_id = Column(Integer, ForeignKey('suite.id'))
     suite = relationship('Suite')
 
+    def __init__(self, name=None, subnet=None, netmask=None, suiteID=None):
+        self.name = name
+        self.subnet = subnet
+        self.netmask = netmask
+        if suiteID:
+            self.suite_id = suiteID
+
+    def updateParams(self, name=None, subnet=None, netmask=None, suiteID=None):
+        if name:
+            self.name = name
+        if subnet:
+            self.subnet = subnet
+        if netmask:
+            self.netmask = netmask
+        if suiteID:
+            self.suite_id = suiteID
+
     def __unicode__(self):
         return self.name
 
-    def APIGetDict(self, short = True):
-        params = ['id', 'name']
-        if not short:
-            params.extend(['subnet', 'netmask', 'description','host','suite'])
-        return self.SQLA2Dict(params)
+    def APIGetDict(self, short=True):
+        return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)

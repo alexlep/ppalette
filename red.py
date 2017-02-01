@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 from flask import Flask
 
 from core.redapi import initRedApiBP
@@ -16,8 +17,11 @@ if not init_db(False):
 RedScheduler = Scheduler(redConfigFile)
 RedScheduler.start()
 
+host = RedScheduler.config.webapi.host
+port = RedScheduler.config.webapi.port
+
 RedApi = Flask (__name__)
 RedApi.secret_key="my_favourite_secret_key_here"
 RedApi.register_blueprint(initRedApiBP(RedScheduler))
 if __name__ == '__main__':
-    RedApi.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
+    RedApi.run(debug=False, host=host, port=port, threaded=True)

@@ -2,9 +2,7 @@
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
-from red import RedApi
-
-port = 5000
+from red import RedApi, host, port
 
 if __name__ =='__main__':
     http_server = HTTPServer(WSGIContainer(RedApi))

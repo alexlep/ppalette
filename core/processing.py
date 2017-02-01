@@ -31,6 +31,8 @@ class Sender(Thread):
             except EOFError:
                 print self.name, 'IOERROR, expected'
                 self.active = False
+            except Exception as e:
+                print "{}, unexpected".format(e)
 
     def getProcessedTasksCounter(self):
         processedCount = self.counter
@@ -87,9 +89,6 @@ class Consumer(Thread):
         print 'closed channel'
 
 class Worker(Process):
-    """
-    http://jhshi.me/2015/12/27/handle-keyboardinterrupt-in-python-multiprocessing/index.html
-    """
     def __init__(self, InPQueue, OutPQueue, logger, ssh_config, checks={}):
         super(Worker, self).__init__()
         self.in_process_queue = InPQueue
@@ -108,7 +107,8 @@ class Worker(Process):
                 self._putMessageToQueue(reply)
                 counter += 1
                 if counter == 100:
-                    print "{0} Another 100 messages were sent by thread {1}".format(datetime.now(), self.name)
+                    print "{0} Another 100 messages were sent by thread {1}".\
+                          format(datetime.now(), self.name)
                     counter = 0
             except AssertionError as ae:
                 pass
@@ -123,7 +123,8 @@ class Worker(Process):
             return self.checks[check_script]
         except:
             print 'Plugin {0} not found in configuration'.format(check_script)
-            self.logger.warning('Plugin {0} not found in configuration'.format(check_script))
+            self.logger.warning('Plugin {0} not found in configuration'.\
+                                format(check_script))
             executor = None
 
     def _getMessageFromQueue(self):

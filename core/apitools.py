@@ -1,3 +1,5 @@
+from sqlalchemy.orm import contains_eager
+from sqlalchemy.exc import IntegrityError
 from tools import validateIP, resolveIP, validateInt, validatePage
 from models import Host, Subnet, Plugin, History, Suite, Status
 from core.database import db_session
@@ -49,7 +51,7 @@ class apiSingleCallHandler(object):
             'Host' : self.parseParamsForHost,
             'Plugin' : self.parseParamsForPlugin,
             'Suite' : self.parseParamsForSuite,
-            'Subnet' : self.parseParamsForSuite
+            'Subnet' : self.parseParamsForSubnet
             }
         REQUEST_MAPPER = {
             'GET' : self.apiCommonGetRequest,
@@ -205,7 +207,9 @@ class apiSingleCallHandler(object):
     def parseParamsForHost(self):
         suiteID = subnetID = None
         if not self.edit:
-            ip = apiValidateIpParam(self.identificator, self.params)
+            ip = apiValidateMandParam(self.identificator, self.params)
+            if not validateIP(ip):
+                raise ValueError("Failed to validate subnet!")
         suite = self.params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
@@ -230,6 +234,25 @@ class apiSingleCallHandler(object):
             maintenance = apiValidateTriggerParam('maintenance', self.params)
             hostname = self.params.get('hostname')
             res = (suiteID, subnetID, hostname, login, maintenance)
+        return res
+
+    def parseParamsForSubnet(self):
+        suiteID = None
+        name = apiValidateMandParam(self.identificator, self.params)
+        subnet = apiValidateMandParam('subnet', self.params)
+        netmask = apiValidateMandParam('netmask', self.params)
+        if not validateIP(subnet):
+            raise ValueError("Failed to validate subnet!")
+        if not validateIP(netmask):
+            raise ValueError("Failed to validate netmask!")
+        suite = self.params.get('suite')
+        if suite:
+            suiteDB = Suite.query.filter(Suite.name == suite).first()
+            if not suiteDB:
+                raise ValueError("Suite {} not found in db".format(suite))
+            else:
+                suiteID = suiteDB.id
+        res = (name, subnet, netmask, suiteID)
         return res
 
     def genRecList(self, IDs, dbmodel):
@@ -264,7 +287,12 @@ class apiListCallHandler(object):
             if not self.pluginType:
                 model_query = db_session.query(self.dbmodel)
             else:
-                model_query = self.getStatusQuery(self.pluginType)
+                try:
+                    model_query = self.getStatusQuery(self.pluginType)
+                except ValueError as ve:
+                    fullres = dict(message=ve.message)
+                    exitcode = 400
+                    return (fullres, exitcode)
             objects, total, total_pages = self.paginationQuery(model_query)
             res = [obj.APIGetDict(short=False) for obj in objects]
             if not res:

@@ -14,15 +14,15 @@ class Violet(object):
     def __init__(self, configFile):
         self.config = parseConfig(configFile)
         self.log = initLogging(self.config.log) # init logging
-        self.MQ = MQ(self.config.queue, self.log)
-        self.identifier = self.MQ.PyConnection._channel0.client_properties['connection_id']
-        self.senderStatsChannel = self.MQ.initOutRabbitPyChannel(self.config.queue.monitoring_outqueue)
+        self.MQ = MQ(self.config.queue)
+        self.identifier = self.MQ.getConnectionId()
+        self.senderStatsChannel = self.MQ.initMonitoringOutChannel()
         self.checks = self.preparePluginDict()
         self.factory = Factory()
-        self.factory.prepareWorkers(procCount = self.config.process_count,
-                                    logger = self.log,
-                                    checks = self.checks,
-                                    ssh_config = self.config.ssh)
+        self.factory.prepareWorkers(procCount=self.config.process_count,
+                                    logger=self.log,
+                                    checks=self.checks,
+                                    ssh_config=self.config.ssh)
         self._prepareConsumers() # separate consumer thread
         self._prepareSenders() # separate sender thread
 
@@ -47,6 +47,7 @@ class Violet(object):
         return tPlugDict
 
     def startProcesses(self):
+        print 'starting'
         self.factory.startWork()
         while True:
             time.sleep(self.config.heartbeat_interval)
@@ -57,19 +58,25 @@ class Violet(object):
         print 'workers_went_home'
         sys.exit(0)
 
-    def _sendStats(self, interval):
-        statistics =  self.factory.gatherStats(interval)
+    def _sendStats(self, interval=0):
+        statistics = self.factory.gatherStats(interval)
         statistics.identifier = self.identifier
-        message = self.MQ.prepareMsg(self.senderStatsChannel, statistics.tojson())
-        message.publish('', self.config.queue.monitoring_outqueue)
+        self.MQ.sendM(self.senderStatsChannel, statistics.tojson())
 
     def _prepareConsumers(self):
         for i in range(self.config.queue.consumer_amount):
-            self.factory.consumers.append(Consumer(mqQueue =self.MQ.initInRabbitPyQueue(), pQueue = self.factory.in_process_queue_f))
+            self.factory.\
+                consumers.\
+                append(Consumer(mqQueue=self.MQ.initInRabbitPyQueue(),
+                                pQueue=self.factory.in_process_queue_f))
 
     def _prepareSenders(self):
         for i in range(self.config.queue.sender_amount):
-            self.factory.senders.append(Sender(mqChannel = self.MQ.initOutRabbitPyChannel(), mqQueue = self.config.queue.outqueue, pQueue = self.factory.out_process_queue_f))
+            self.factory.\
+                senders.\
+                append(Sender(mqChannel=self.MQ.initOutRabbitPyChannel(),
+                              mqQueue=self.config.queue.outqueue,
+                              pQueue=self.factory.out_process_queue_f))
 
 if __name__ =='__main__':
     VioletApp = Violet(violetConfig)

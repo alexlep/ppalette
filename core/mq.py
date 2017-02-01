@@ -2,8 +2,6 @@
 import sys
 import rabbitpy
 import requests
-#from rabbitpy import Connection, Channel0
-#from rabbitpuy import __version__ as rabbitpy_version
 from rabbitpy.channel0 import Channel0
 from pamqp import specification
 from tools import getUniqueID
@@ -40,7 +38,7 @@ class myConnection(rabbitpy.Connection):
             connection=self)
 
 class MQ(object):
-    def __init__(self, config, logger):
+    def __init__(self, config):
         self.config = config
         self.pyurl = 'amqp://{0}:{1}@{2}:{3}/%2F'.format(self.config.user,
                                                          self.config.password,
@@ -48,8 +46,7 @@ class MQ(object):
                                                          self.config.port)
         try:
             self.PyConnection = myConnection(self.pyurl)
-        except RuntimeError:
-            logger.error('Unable to connect to RabbitMQ. Please check config and RMQ service.')
+        except:
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."
             sys.exit(1)
 
@@ -75,9 +72,19 @@ class MQ(object):
     def prepareMsg(self, ch, data):
         return rabbitpy.Message(ch, data)
 
+    def sendM(self, ch, msg):
+        message = self.prepareMsg(ch, msg)
+        message.publish(str(), self.config.outqueue)
+
     def getActiveClients(self):
         res = requests.get('http://{0}:{1}/api/connections'.\
                            format(self.config.host,
                                   self.config.monitoring_port),
                            auth=(self.config.user, self.config.password))
         return res.json()
+
+    def getConnectionId(self):
+        return self.PyConnection._channel0.client_properties['connection_id']
+
+    def initMonitoringOutChannel(self):
+        return self.initOutRabbitPyChannel(self.config.monitoring_outqueue)
