@@ -217,5 +217,26 @@ class apiTestClass(unittest.TestCase):
         # check_status
         result = self.app.get('/redapi/status')
         self.assertEqual(result.status_code, 200)
+
+    # test subnets and discovery
+    def test7000(self):
+        # check adding new subnet
+        result = self.app.post('/redapi/subnet?name=poneyTelecomSubnet&subnet=62.210.18.0&netmask=255.255.255.192&suite=defaultSuite')
+        self.assertEqual(result.status_code, 200)
+        
+    def test7010(self):
+        # check discovery for added subnet - requests are sent to rabbitMQ
+        result = self.app.get('/redapi/ops?op=discovery&arg=poneyTelecomSubnet')
+        self.assertEqual(result.status_code, 200)
+
+    def test7020(self):
+        # check get for added subnet
+        result = self.app.get('/redapi/subnet?name=poneyTelecomSubnet')
+        self.assertEqual(result.status_code, 200)
+
+    def test7022(self):
+        # check list of subnets
+        result = self.app.get('/redapi/subnets')
+        self.assertEqual(result.status_code, 200)
 if __name__ == '__main__':
     unittest.main()
