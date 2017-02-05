@@ -38,34 +38,30 @@ class myConnection(rabbitpy.Connection):
             connection=self)
 
 class MQ(object):
-    def __init__(self, config):
+    def __init__(self, config, violet=False):
         self.config = config
         self.pyurl = 'amqp://{0}:{1}@{2}:{3}/%2F'.format(self.config.user,
                                                          self.config.password,
                                                          self.config.host,
                                                          self.config.port)
         try:
-            self.PyConnection = myConnection(self.pyurl)
+            self.PyConnection = myConnection(self.pyurl) if violet\
+            else rabbitpy.Connection(self.pyurl)
         except:
             print "Unable to connect to RabbitMQ. Please check config and RMQ service."
             sys.exit(1)
 
-    def initInRabbitPyQueue(self, mqInQueue = None):
+    def initInRabbitPyQueue(self, mqInQueue=None):
         inChannel = self.PyConnection.channel()
-        if not mqInQueue:
-            Queue = rabbitpy.Queue(inChannel, self.config.inqueue)
-        else:
-            Queue = rabbitpy.Queue(inChannel, mqInQueue)
+        Queue = rabbitpy.Queue(inChannel, mqInQueue or self.config.inqueue)
         Queue.durable = True
         Queue.declare()
         return Queue
 
-    def initOutRabbitPyChannel(self, mqOutQueue = None):
+    def initOutRabbitPyChannel(self, mqOutQueue=None):
         outChannel = self.PyConnection.channel()
-        if not mqOutQueue:
-            exchange = rabbitpy.Exchange(outChannel, self.config.outqueue)
-        else:
-            exchange = rabbitpy.Exchange(outChannel, mqOutQueue)
+        exchange = rabbitpy.Exchange(outChannel,
+                                     mqOutQueue or self.config.outqueue)
         exchange.declare()
         return outChannel
 
@@ -76,12 +72,25 @@ class MQ(object):
         message = self.prepareMsg(ch, msg)
         message.publish(str(), self.config.outqueue)
 
+    def sendStatM(self, ch, msg):
+        message = self.prepareMsg(ch, msg)
+        message.publish(str(), self.config.monitoring_outqueue)
+
     def getActiveClients(self):
         res = requests.get('http://{0}:{1}/api/connections'.\
                            format(self.config.host,
                                   self.config.monitoring_port),
                            auth=(self.config.user, self.config.password))
         return res.json()
+
+    def getWorkersList(self):
+        workers = self.getActiveClients()
+        res = dict()
+        for worker in workers:
+            if 'connection_id' in worker['client_properties']:
+                worker_id = worker['client_properties']['connection_id']
+                res[worker_id] = worker.get('host')
+        return res
 
     def getConnectionId(self):
         return self.PyConnection._channel0.client_properties['connection_id']

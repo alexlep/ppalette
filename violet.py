@@ -14,7 +14,7 @@ class Violet(object):
     def __init__(self, configFile):
         self.config = parseConfig(configFile)
         self.log = initLogging(self.config.log) # init logging
-        self.MQ = MQ(self.config.queue)
+        self.MQ = MQ(self.config.queue, violet=True)
         self.identifier = self.MQ.getConnectionId()
         self.senderStatsChannel = self.MQ.initMonitoringOutChannel()
         self.checks = self.preparePluginDict()
@@ -61,7 +61,7 @@ class Violet(object):
     def _sendStats(self, interval=0):
         statistics = self.factory.gatherStats(interval)
         statistics.identifier = self.identifier
-        self.MQ.sendM(self.senderStatsChannel, statistics.tojson())
+        self.MQ.sendStatM(self.senderStatsChannel, statistics.tojson())
 
     def _prepareConsumers(self):
         for i in range(self.config.queue.consumer_amount):

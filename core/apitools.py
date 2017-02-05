@@ -1,17 +1,22 @@
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.exc import IntegrityError
-from tools import validateIP, resolveIP, validateInt, validatePage
+
+from tools import validateIP, validateNetwork, resolveIP, validateInt,\
+                  validatePage
 from models import Host, Subnet, Plugin, History, Suite, Status
 from core.database import db_session
+from monitoring import RRD
 
 STATUS_OK = 0
 STATUS_WARNING = 1
 STATUS_ERROR = 2
+VIOLET = 'violet'
+COMMON = 'common'
 
 def apiValidateMandParam(option, params):
     value = params.get(option)
     if not value:
-        raise ValueError("{} is not set".format(option))
+        raise ValueError("Mandatory arg {} is not set".format(option))
     return value
 
 def apiValidateIntegerParam(option, params):
@@ -209,7 +214,7 @@ class apiSingleCallHandler(object):
         if not self.edit:
             ip = apiValidateMandParam(self.identificator, self.params)
             if not validateIP(ip):
-                raise ValueError("Failed to validate subnet!")
+                raise ValueError("Failed to validate IP!")
         suite = self.params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
@@ -241,10 +246,9 @@ class apiSingleCallHandler(object):
         name = apiValidateMandParam(self.identificator, self.params)
         subnet = apiValidateMandParam('subnet', self.params)
         netmask = apiValidateMandParam('netmask', self.params)
-        if not validateIP(subnet):
-            raise ValueError("Failed to validate subnet!")
-        if not validateIP(netmask):
-            raise ValueError("Failed to validate netmask!")
+        if not validateNetwork(subnet, netmask):
+            raise ValueError("Failed to validate subnet/netmask {0}/{1}!".\
+            format(subnet, netmask))
         suite = self.params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
@@ -335,3 +339,62 @@ class apiListCallHandler(object):
             if total % self.perpage:
                 total_pages += 1
         return (items, total, total_pages)
+
+class apiMonitoringHandler(object):
+    def __init__(self, args, getWorkersMethod, statRRDFile):
+        self.monType = args.get('type')
+        if self.monType in ('violet', 'violets'):
+            self.workers = getWorkersMethod()
+        if self.monType == ('violet'):
+            self.violet_id = apiValidateMandParam('violet_id', args)
+            if self.violet_id not in self.workers.keys():
+                raise ValueError('ID {} is not found in connected workers'.\
+                                 format(self.violet_id))
+        self.period = args.get('period') or 'all'
+        self.statRRDFile = statRRDFile
+
+    def run(self):
+        if self.monType == 'common':
+            res, exitcode = self.getCommonStats()
+        elif self.monType == 'violets':
+            res, exitcode = self.getAllVioletsStats()
+        elif self.monType == 'violet':
+            res, exitcode = self.getSingleVioletStats()
+        else:
+            res = dict(message='Invalid argument for monitoring - {}!'.\
+                       format(monType))
+            exitcode = 400
+        return res, exitcode
+
+    def getAllVioletsStats(self):
+        res, exitcode = (dict(), 200)
+        if any(self.workers):
+            for key in self.workers.keys():
+                try:
+                    res[key] = self.fetchSingleVioletStats(key, self.period)
+                except Exception as e:
+                    res = dict(message='api command failed: {}'.format(e))
+                    exitcode = 501
+        return res, exitcode
+
+    def getCommonStats(self):
+        res = RRD(self.statRRDFile).getChartData(hours=1, grades=60)\
+            if self.period == 'all'\
+            else RRD(self.statRRDFile).getLatestUpdate()
+        exitcode = 200
+        return res, exitcode
+
+    def getSingleVioletStats(self):
+        try:
+            res = self.fetchSingleVioletStats(self.violet_id, self.period)
+            exitcode = 200
+        except Exception as e:
+            res = dict(message=e)
+            exitcode = 400
+        return res, exitcode
+
+    def fetchSingleVioletStats(self, violet_id, period):
+        rrdinst = RRD("{}.rrd".format(violet_id), statType=VIOLET)
+        return rrdinst.getChartData(hours=1, grades=60)\
+              if period == 'all'\
+              else rrdinst.getLatestUpdate()

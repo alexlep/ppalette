@@ -1,15 +1,12 @@
 import sys
 from flask import Blueprint, abort, jsonify, request, url_for
-from ipaddress import IPv4Network
 
 from mq import MQ
-from monitoring import RRD
-from tools import Message
+from tools import Message, getListOfIPs
 from models import Host, Subnet, Plugin, History, Suite, Status
-from apitools import apiSingleCallHandler, apiListCallHandler
+from apitools import apiSingleCallHandler, apiListCallHandler,\
+                     apiMonitoringHandler
 
-VIOLET = 'violet'
-COMMON = 'common'
 PER_PAGE = 10
 
 def initRedApiBP(scheduler):
@@ -18,67 +15,27 @@ def initRedApiBP(scheduler):
     apiMQ = MQ(scheduler.config.queue)
     redApiOutChannel = apiMQ.initOutRabbitPyChannel()
 
-    @redapiBP.route('/redapi/monitoring/common')
-    @redapiBP.route('/redapi/monitoring/common/<period>')
-    def getCustomStats(period='last'):
-        if period == 'all':
-            return jsonify(**RRD(statRRDFile).\
-                           getChartData(hours=1, grades=60))
-        elif period =='last':
-            return jsonify(**RRD(statRRDFile).getLatestUpdate())
-        else:
-            abort(404)
+    @redapiBP.route('/redapi/monitoring')
+    def getMonitoring():
+        try:
+            res, exitcode = apiMonitoringHandler(request.args,
+                                                 apiMQ.getWorkersList,
+                                                 statRRDFile).run()
+        except Exception as e:
+            res = dict(message=e.message)
+            exitcode = 400
+        return jsonify(**res), exitcode
 
-    @redapiBP.route('/redapi/monitoring/violet/<violet_id>/<period>')
-    def getSingleVioletStats(violet_id, period):
-        if (violet_id.startswith('violet')) and \
-            (violet_id in getWorkersList().keys()):
-            if period == "all":
-                rrdinst = RRD("{}.rrd".format(violet_id), statType=VIOLET)
-                return jsonify(**rrdinst.getChartData(hours=1, grades=60))
-            elif "last":
-                return jsonify(**RRD(statRRDFile).getLatestUpdate())
-            else:
-                abort(404)
-        else:
-            abort(404)
-
-    @redapiBP.route('/redapi/monitoring/violets')
-    @redapiBP.route('/redapi/monitoring/violets/<period>')
-    def getAllVioletStats(period='last'):
-        if period not in ('all', 'last'):
-            abort(404)
-        res = dict()
-        workers = getWorkersList()
-        for key in workers.keys():
-            if key.startswith('violet'):
-                rrdinst = RRD("{}.rrd".format(key), statType=VIOLET)
-                try:
-                    res[key] = rrdinst.getChartData(hours=1, grades=60)\
-                               if period == 'all' else\
-                               rrdinst.getLatestUpdate()
-                except Exception as e:
-                    print 'api command failed', e
-                    pass
-        return jsonify(**res)
-
-    @redapiBP.route('/redapi/violet/getactiveworkers')
+    @redapiBP.route('/redapi/workers')
     def getWorkersListJson():
         try:
-            return jsonify(**getWorkersList())
-        except:
-            # log it!
-            abort(501)
-
-    def getWorkersList():
-        workers = scheduler.MQ.getActiveClients()
-        res = dict()
-        for worker in workers:
-            if worker.get('user') == 'violet':
-                worker_id = worker['client_properties']['connection_id']
-                res[worker_id] = dict(host=worker.get('host'),
-                                      user=worker.get('user'))
-        return res
+            res = apiMQ.getWorkersList()
+            exitcode = 200
+        except Exception as e:
+            res = dict(message="Unable to connect to RMQ monitoring - {}!".\
+                  format(e))
+            exitcode = 501
+        return jsonify(**res), exitcode
 
     ############################################################################
     @redapiBP.route('/redapi/status')
@@ -219,29 +176,19 @@ def initRedApiBP(scheduler):
     @redapiBP.route('/redapi/scheduler')
     def getSchedulerJobs():
         jobs = scheduler.get_jobs()
-        jobs_list = list()
-        for job in jobs:
-            jobs_list.append(dict(name=job.name, id=job.id,
-                                  next_run_time=job.next_run_time))
+        jobs_list = map(lambda j: dict(name=j.name, id=j.id,
+                                       next_run_time=j.next_run_time), jobs)
         return jsonify(*jobs_list)
 
     ############################################################################
 
-    @redapiBP.route('/redapi/ops', methods=['GET'])
-    def runOperation():
-        operation = request.args.get('op')
-        print operation
-        arg = request.args.get('arg')
-        print arg
-        if (operation == 'discovery'):
-            if arg:
-                res, exitcode = performDiscovery(arg)
-            else:
-                res = dict(message='Argument for operation {} is not set'.\
-                           format(operation))
-                exitcode = 404
+    @redapiBP.route('/redapi/discovery', methods=['GET'])
+    def runDiscovery():
+        subnet = request.args.get('subnet')
+        if subnet:
+            res, exitcode = performDiscovery(subnet)
         else:
-            res = dict(message='Operation {} is not supported'.\
+            res = dict(message='Subnet parameter is not found'.\
                        format(operation))
             exitcode = 404
         return jsonify(**res), exitcode
@@ -249,8 +196,7 @@ def initRedApiBP(scheduler):
     def performDiscovery(subnetname):
         subnet = Subnet.query.filter_by(name=subnetname).first()
         if subnet:
-            ipaddresses = list(IPv4Network(u'{0}/{1}'.format(subnet.subnet,
-                                                             subnet.netmask)))
+            ipaddresses = getListOfIPs(subnet.subnet, subnet.netmask)
             for ipaddress in ipaddresses:
                 discoveryJob = Message(subnet=subnet)
                 discoveryJob.ipaddress = str(ipaddress)

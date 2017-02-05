@@ -12,20 +12,22 @@ class SSHConnection(object):
         self.port = port
 
     def establishSSHSession(self):
-        if (not self.user) or (not self.IP): # if account is not found in the NEAC
-            #self.logger.critical("Unable to fetch creds for %s (IP: %s). Check if NEAC contain account for service \"%s\"" % (ne.MO, ne.IP, ne.service))
+        if (not self.user) or (not self.IP):
+            #self.logger.critical(""))
             return False
         try:
             self.client = paramiko.SSHClient()
             self.client.load_system_host_keys(self.host_key_file)
             self.client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy())
             self.rsa_key = paramiko.RSAKey.from_private_key_file(self.rsa_key_file)
-            self.client.connect(self.IP, self.port, self.user, pkey = self.rsa_key, timeout = self.ssh_connection_timeout)
+            self.client.connect(self.IP, self.port, self.user,
+                                pkey=self.rsa_key,
+                                timeout=self.ssh_connection_timeout)
             self.channel = self.client.get_transport().open_session()
-            #self.logger.info("Network Element %s: Authentication successfully done." % (ne.IP,))
+            #self.logger.info("")
             return True
         except Exception as err:
-            #self.logger.info("Network Element %s is accessible. Continuing." % (ne.IP,))
+            #self.logger.info("")
             self.error = err
             return False
 
@@ -35,7 +37,8 @@ class SSHConnection(object):
 
     def executeCommand(self, command='/usr/bin/uptime'):
         if not self.establishSSHSession():
-            res, details, exitcode = 'SSH connection failed: {}'.format(self.error), None, 2
+            res, details, exitcode = 'SSH connection failed: {}'.\
+                                     format(self.error), None, 2
         else:
             stdin, stdout, stderr = self.client.exec_command(command)
             exitcode = stdout.channel.recv_exit_status()
