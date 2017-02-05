@@ -8,6 +8,7 @@ import socket
 import datetime as dt
 import time
 from sshexecutor import SSHConnection
+from ipaddress import ip_address, ip_network, IPv4Network
 
 class Message(object):
     type = None
@@ -194,11 +195,22 @@ def resolveIP(ipaddress):
 
 def validateIP(ipaddress):
     try:
-        socket.inet_aton(ipaddress)
+        ip_address(ipaddress)
         res = True
-    except socket.error:
+    except:
         res = False
     return res
+
+def validateNetwork(subnet, netmask):
+    try:
+        ip_network(u'{0}/{1}'.format(subnet, netmask))
+        res = True
+    except:
+        res = False
+    return res
+
+def getListOfIPs(subnet, netmask):
+    return list(IPv4Network(u'{0}/{1}'.format(subnet, netmask)))
 
 def validateInt(value):
     try:
