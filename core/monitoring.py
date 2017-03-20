@@ -6,6 +6,7 @@ import rrdtool
 import json
 from tools import draftClass
 import inspect
+from models import Host, Status, Plugin, Suite
 
 VIOLET = 'violet'
 COMMON = 'common'
@@ -25,6 +26,44 @@ class CommonStats(object):
                     'hosts_active_up'
                     ]
     unmonitored_items = ['interval', 'data_sources']
+
+    def __init__(self, db_session):
+        self.dbs = db_session
+
+    def update(self):
+        self.hosts_active = self.dbs.query(Host.id).\
+                                    filter(Host.maintenance == False).count()
+        self.hosts_all = self.dbs.query(Host.id).count()
+        self.hosts_active_up = self.dbs.query(Host.id).\
+                                join((Status, Host.stats)).\
+                                join((Plugin, Status.plugin)).\
+                                filter(Host.maintenance == False,
+                                       Status.last_exitcode == 0,
+                                       Plugin.script == 'check_ping').\
+                                count()
+        self.checks_active = self.dbs.query(Status.id).\
+                                join((Host, Status.host)).\
+                                filter(Host.maintenance == False).\
+                                count()
+        self.checks_all = self.dbs.query(Plugin.id).\
+                                join((Suite, Plugin.suites)).\
+                                join((Host, Suite.host)).\
+                                count()
+        self.checks_ok = self.dbs.query(Status.id).\
+                                join((Host, Status.host)).\
+                                filter(Status.last_exitcode == 0,
+                                       Host.maintenance == False).\
+                                count()
+        self.checks_warn = self.dbs.query(Status.id).\
+                                join((Host, Status.host)).\
+                                filter(Status.last_exitcode == 1,
+                                       Host.maintenance == False).\
+                                count()
+        self.checks_error = self.dbs.query(Status.id).\
+                                join((Host, Status.host)).\
+                                filter(Status.last_exitcode == 2,
+                                       Host.maintenance == False).\
+                                count()
 
 class Stats(object):
     interval = None
@@ -77,16 +116,21 @@ class RRD(object):
         equal to first update timestamp.
         """
         try:
-            start_timestamp = int(time.mktime(dt.datetime.strptime(statdata.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())) - statdata.interval
+            start_timestamp = int(time.mktime(
+                                    dt.datetime.strptime(
+                                        statdata.last_update_time,
+                                        "%H:%M:%S:%d:%m:%Y").\
+                                            timetuple())) - statdata.interval
         except Exception as e:
-            print 'oops', e
-            start_timestamp = int(time.mktime(dt.datetime.now().timetuple())) - statdata.interval
+            start_timestamp = int(time.mktime(
+                                    dt.datetime.now().\
+                                        timetuple())) - statdata.interval
         args = [self.rrd,
                 "--start", str(start_timestamp),
                 '--step', str(statdata.interval),
                 "RRA:AVERAGE:0.5:1:1440", "RRA:AVERAGE:0.5:60:744"]
-        print statdata.data_sources, statdata.interval, start_timestamp
-        args.extend(self._getDataSourcesRRDList(statdata.data_sources, statdata.interval))
+        args.extend(self._getDataSourcesRRDList(statdata.data_sources,
+                                                statdata.interval))
         rrdtool.create(*args)
 
     def insertValues(self, statdata):
@@ -139,14 +183,18 @@ class RRD(object):
         return nvalue
 
     def _getDataSourcesRRDList(self, dataSources, interval):
-        return [ 'DS:{0}:GAUGE:{1}:0:100000'.format(ds, interval) for ds in dataSources ]
+        return [ 'DS:{0}:GAUGE:{1}:0:100000'.format(ds, interval) \
+                for ds in dataSources ]
 
     def _getDataSourcesString(self, dataSources):
         return str(":".join(dataSources))
 
     def _getDataValuesString(self, params, useStatDate=False):
         try:
-            stime = str(int(time.mktime(dt.datetime.strptime(params.last_update_time, "%H:%M:%S:%d:%m:%Y").timetuple())))
+            stime = str(int(time.mktime(
+                                dt.datetime.strptime(params.last_update_time,
+                                                     "%H:%M:%S:%d:%m:%Y").\
+                                                    timetuple())))
         except:
             stime = 'N' # now
         values = [str(int(params.__dict__[ds])) for ds in params.data_sources]

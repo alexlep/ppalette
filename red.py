@@ -6,9 +6,7 @@ from flask import Flask
 from core.redapi import initRedApiBP
 from core.pscheduler import Scheduler
 from core.database import init_db
-
-workingDir = os.path.dirname(os.path.abspath(__file__))
-redConfigFile = workingDir + '/config/red_config.json'
+from core.env import redConfigFile
 
 if not init_db(False):
     print "Service is unable to connect to DB. Check if DB service is running. Aborting."

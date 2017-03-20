@@ -6,27 +6,26 @@ from tools import Message, getListOfIPs
 from models import Host, Subnet, Plugin, History, Suite, Status
 from apitools import apiSingleCallHandler, apiListCallHandler,\
                      apiMonitoringHandler
+import pvars as pv
 
 PER_PAGE = 10
 
 def initRedApiBP(scheduler):
     redapiBP = Blueprint('redapi_blueprint', __name__)
-    statRRDFile = 'common_statistics.rrd'
     apiMQ = MQ(scheduler.config.queue)
     redApiOutChannel = apiMQ.initOutRabbitPyChannel()
 
-    @redapiBP.route('/redapi/monitoring')
+    @redapiBP.route(pv.MONITORING)
     def getMonitoring():
         try:
-            res, exitcode = apiMonitoringHandler(request.args,
-                                                 apiMQ.getWorkersList,
-                                                 statRRDFile).run()
+            res, exitcode = apiMonitoringHandler(request.form,
+                                                 apiMQ.getWorkersList).run()
         except Exception as e:
             res = dict(message=e.message)
             exitcode = 400
         return jsonify(**res), exitcode
 
-    @redapiBP.route('/redapi/workers')
+    @redapiBP.route(pv.WORKERS)
     def getWorkersListJson():
         try:
             res = apiMQ.getWorkersList()
@@ -38,41 +37,41 @@ def initRedApiBP(scheduler):
         return jsonify(**res), exitcode
 
     ############################################################################
-    @redapiBP.route('/redapi/status')
-    @redapiBP.route('/redapi/status/<pluginType>')
-    @redapiBP.route('/redapi/status/<pluginType>/<int:page>')
+    @redapiBP.route(pv.STATUS)
+    @redapiBP.route(pv.STATUS + '/<pluginType>')
+    @redapiBP.route(pv.STATUS + '/<pluginType>/<int:page>')
     def getPluginStatus(pluginType='all', page=1):
         res, exitcode = apiListCallHandler(Host, page, PER_PAGE,
                                            pluginType).run()
         return jsonify(**res), exitcode
 
-    @redapiBP.route('/redapi/plugins')
-    @redapiBP.route('/redapi/plugins/<int:page>')
+    @redapiBP.route(pv.PLUGINS)
+    @redapiBP.route(pv.PLUGINS + '/<int:page>')
     def getPluginsList(page=1):
         res, exitcode = apiListCallHandler(Plugin, page, PER_PAGE).run()
         return jsonify(**res), exitcode
 
-    @redapiBP.route('/redapi/suites')
-    @redapiBP.route('/redapi/suites/<int:page>')
+    @redapiBP.route(pv.SUITES)
+    @redapiBP.route(pv.SUITES + '/<int:page>')
     def getSuitesList(page=1):
         res, exitcode = apiListCallHandler(Suite, page, PER_PAGE).run()
         return jsonify(**res), exitcode
 
-    @redapiBP.route('/redapi/subnets')
-    @redapiBP.route('/redapi/subnets/<int:page>')
+    @redapiBP.route(pv.SUBNETS)
+    @redapiBP.route(pv.SUBNETS + '/<int:page>')
     def getSubnetsList(page=1):
         res, exitcode = apiListCallHandler(Subnet, page, PER_PAGE).run()
         return jsonify(**res), exitcode
 
-    @redapiBP.route('/redapi/hosts')
-    @redapiBP.route('/redapi/hosts/<int:page>')
+    @redapiBP.route(pv.HOSTS)
+    @redapiBP.route(pv.HOSTS + '/<int:page>')
     def getHostsList(page=1):
         res, exitcode = apiListCallHandler(Host, page, PER_PAGE).run()
         return jsonify(**res), exitcode
 
     ############################################################################
 
-    @redapiBP.route('/redapi/host', methods=['GET','POST','PUT','DELETE'])
+    @redapiBP.route(pv.HOST, methods=['GET','POST','PUT','DELETE'])
     def singleHostOps():
         """
         Api to handle single host.
@@ -92,13 +91,13 @@ def initRedApiBP(scheduler):
         """
         handler = apiSingleCallHandler(method=request.method,
                                        dbmodel=Host,
-                                       params=request.args)
+                                       params=request.form)
         res, exitcode = handler.run()
         return jsonify(**res), exitcode
 
     ############################################################################
 
-    @redapiBP.route('/redapi/plugin', methods=['GET','POST','PUT','DELETE'])
+    @redapiBP.route(pv.PLUGIN, methods=['GET','POST','PUT','DELETE'])
     def singlePluginOps():
         """
         Api to handle single plugin.
@@ -123,14 +122,14 @@ def initRedApiBP(scheduler):
         """
         handler = apiSingleCallHandler(method=request.method,
                                        dbmodel=Plugin,
-                                       params=request.args,
+                                       params=request.form,
                                        scheduler=scheduler)
         res, exitcode = handler.run()
         return jsonify(**res), exitcode
 
     ############################################################################
 
-    @redapiBP.route('/redapi/suite', methods=['GET','POST','PUT','DELETE'])
+    @redapiBP.route(pv.SUITE, methods=['GET','POST','PUT','DELETE'])
     def singleSuiteOps():
         """
         Api to handle single suite.
@@ -155,25 +154,25 @@ def initRedApiBP(scheduler):
         """
         handler = apiSingleCallHandler(method=request.method,
                                        dbmodel=Suite,
-                                       params=request.args)
+                                       params=request.form)
         res, exitcode = handler.run()
         return jsonify(**res), exitcode
 
     ############################################################################
 
-    @redapiBP.route('/redapi/subnet', methods=['GET','POST','PUT','DELETE'])
+    @redapiBP.route(pv.SUBNET, methods=['GET','POST','PUT','DELETE'])
     def singleSubnetOps():
         """
         """
         handler = apiSingleCallHandler(method=request.method,
                                        dbmodel=Subnet,
-                                       params=request.args)
+                                       params=request.form)
         res, exitcode = handler.run()
         return jsonify(**res), exitcode
 
     ############################################################################
 
-    @redapiBP.route('/redapi/scheduler')
+    @redapiBP.route(pv.SCHEDULER)
     def getSchedulerJobs():
         jobs = scheduler.get_jobs()
         jobs_list = map(lambda j: dict(name=j.name, id=j.id,
@@ -182,9 +181,9 @@ def initRedApiBP(scheduler):
 
     ############################################################################
 
-    @redapiBP.route('/redapi/discovery', methods=['GET'])
+    @redapiBP.route(pv.DISCOVERY, methods=['GET'])
     def runDiscovery():
-        subnet = request.args.get('subnet')
+        subnet = request.form.get('subnet')
         if subnet:
             res, exitcode = performDiscovery(subnet)
         else:
@@ -202,7 +201,8 @@ def initRedApiBP(scheduler):
                 discoveryJob.ipaddress = str(ipaddress)
                 discoveryJob.action = 'discovery'
                 discoveryJob.type = 'task'
-                apiMQ.sendM(redApiOutChannel, discoveryJob.tojson())
+                apiMQ.sendM(redApiOutChannel,
+                            discoveryJob.tojson(refreshTime=True))
             res = dict(message='Discovery request for {} was sent to clients'.\
                        format(subnetname))
             exitcode = 200

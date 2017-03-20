@@ -9,6 +9,7 @@ import datetime as dt
 import time
 from sshexecutor import SSHConnection
 from ipaddress import ip_address, ip_network, IPv4Network
+from pvars import commonConfigFile, defTimeFormat
 
 class Message(object):
     type = None
@@ -36,6 +37,8 @@ class Message(object):
             data = json.loads(data)
         if data:
             self.__dict__.update(data)
+            self.time = strToDate(self.time)
+            self.scheduled_time = strToDate(self.scheduled_time)
         if plugin:
             self.pluginUUID = plugin.pluginUUID
             self.plugin_id = plugin.id
@@ -51,18 +54,16 @@ class Message(object):
             self.login = host.login
         if suite:
             self.suite_id = suite.id
-        if subnet:
+        if subnet: # discovery job
             self.subnet_id = subnet.id
             self.suite_id = subnet.suite_id
-        scheduled_time = dt.datetime.now()
 
     def getScheduleJobID(self):
         return self.hostUUID + self.pluginUUID
 
     def tojson(self, refreshTime = False):
         if refreshTime:
-            self.scheduled_time = dt.datetime.now().\
-                                    strftime("%H:%M:%S:%d:%m:%Y")
+            self.scheduled_time = dateToStr(dt.datetime.now())
         return json.dumps(self.__dict__)
 
     def prepareSSHCommand(self):
@@ -90,7 +91,7 @@ class draftClass:
 def time_wrap(func):
     def func_wrapper(*args, **kwargs):
         data = func(*args, **kwargs)
-        data.time = dt.datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
+        data.time = dateToStr(dt.datetime.now())
         return data
     return func_wrapper
 
@@ -139,11 +140,12 @@ def executeProcess(job):
 
 @time_wrap
 def executeProcessViaSSH(job, ssh_config):
-    if not (os.path.isfile(ssh_config.host_key_file)) or not (os.path.isfile(ssh_config.host_key_file)):
+    if not (os.path.isfile(ssh_config.host_key_file)) or \
+       not (os.path.isfile(ssh_config.host_key_file)):
         raise IOError
-    conn = SSHConnection(ipaddress = job.ipaddress,
-                         user = job.login,
-                         ssh_config = ssh_config)
+    conn = SSHConnection(ipaddress=job.ipaddress,
+                         user=job.login,
+                         ssh_config=ssh_config)
     job.output, job.details, job.exitcode = conn.executeCommand(job.prepareSSHCommand()) # here remote connection is killed
     return job
 
@@ -223,3 +225,12 @@ def validatePage(value):
     if validateInt(value) < 1:
         raise ValueError("{} value is below 1".format(value))
     return True
+
+def checkDev():
+    return parseConfig(commonConfigFile).development
+
+def strToDate(dateStr):
+    return dt.datetime.strptime(dateStr, defTimeFormat)
+
+def dateToStr(dateObj):
+    return dateObj.strftime(defTimeFormat)

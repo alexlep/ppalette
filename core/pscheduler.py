@@ -11,10 +11,14 @@ from database import db_session
 
 class Scheduler(BackgroundScheduler):
     def __init__(self, configFile):
-        super(BackgroundScheduler, self).__init__( {'apscheduler.executors.default': {
-        'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
-        'max_workers': '1'
-        }})
+        super(BackgroundScheduler, self).__init__(\
+            {
+                'apscheduler.executors.default':
+                {
+                    'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+                    'max_workers': '1'
+                }
+            })
         self.config = parseConfig(configFile)
         try:
             self.log = initLogging(self.config.log, __name__)
@@ -23,7 +27,7 @@ class Scheduler(BackgroundScheduler):
             print "Error: {}".format(ioe.strerror)
             sys.exit(1)
         self.MQ = MQ(self.config.queue) # init MQ
-        self.mqCommonJobsOutChannel = self.MQ.initOutRabbitPyChannel() # to violet
+        self.mqCommonJobsOutChannel = self.MQ.initOutRabbitPyChannel()
         self.fillSchedule()
 
     def _prepareStartTime(self, delta):

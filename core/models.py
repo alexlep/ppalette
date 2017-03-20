@@ -198,6 +198,22 @@ class Status(RedBase):
     last_status = Column(String(1000))
     last_exitcode = Column(Integer)
 
+    def __init__(self, msg):
+        self.plugin_id = msg.plugin_id
+        self.host_id = msg.host_id
+        self.last_status = msg.output
+        self.last_exitcode = msg.exitcode
+        self.scheduled_check_time = msg.scheduled_time
+        self.last_check_run = msg.time
+        self.interval = msg.interval
+
+    def update(self, msg):
+        self.last_status = msg.output
+        self.last_exitcode = msg.exitcode
+        self.scheduled_check_time = msg.scheduled_time
+        self.last_check_run = msg.time
+        self.interval = msg.interval
+
     def __unicode__(self):
         return self.plugin.customname
 
@@ -222,8 +238,8 @@ class History(Base):
         return self.check_status
 
     def __init__(self, msg):
-        self.host_id = msg.hostid
-        self.plugin_id = msg.pluginid
+        self.host_id = msg.host_id
+        self.plugin_id = msg.plugin_id
         self.check_run_time = msg.time
         self.check_status = msg.output
         self.check_exitcode = msg.exitcode

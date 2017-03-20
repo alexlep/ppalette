@@ -1,6 +1,7 @@
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.exc import IntegrityError
 
+from env import statRRDFile, rrdDataDir
 from tools import validateIP, validateNetwork, resolveIP, validateInt,\
                   validatePage
 from models import Host, Subnet, Plugin, History, Suite, Status
@@ -262,13 +263,15 @@ class apiSingleCallHandler(object):
     def genRecList(self, IDs, dbmodel):
         res = list()
         modelname = dbmodel.__name__
+        if ',' in IDs[0]:
+            IDs = IDs[0].split(',')
         for value in IDs:
             record = db_session.query(dbmodel).\
                         filter(getattr(dbmodel,
                                        self.ID_MAPPER.\
                                             get(modelname)) == value).first()
             if not record:
-                raise ValueError('Failed to add {0} {1}: {2} is not in DB'.\
+                raise ValueError('Failed to add to {0} {1}: {2} is not in DB'.\
                                  format(modelname, value, modelname))
             else:
                 res.append(record)
@@ -341,17 +344,15 @@ class apiListCallHandler(object):
         return (items, total, total_pages)
 
 class apiMonitoringHandler(object):
-    def __init__(self, args, getWorkersMethod, statRRDFile):
+    def __init__(self, args, getWorkersMethod):
         self.monType = args.get('type')
         if self.monType in ('violet', 'violets'):
             self.workers = getWorkersMethod()
         if self.monType == ('violet'):
             self.violet_id = apiValidateMandParam('violet_id', args)
-            if self.violet_id not in self.workers.keys():
-                raise ValueError('ID {} is not found in connected workers'.\
-                                 format(self.violet_id))
+            self.vconn = True if self.violet_id in self.workers.keys() \
+                              else False
         self.period = args.get('period') or 'all'
-        self.statRRDFile = statRRDFile
 
     def run(self):
         if self.monType == 'common':
@@ -362,7 +363,7 @@ class apiMonitoringHandler(object):
             res, exitcode = self.getSingleVioletStats()
         else:
             res = dict(message='Invalid argument for monitoring - {}!'.\
-                       format(monType))
+                       format(self.monType))
             exitcode = 400
         return res, exitcode
 
@@ -378,23 +379,28 @@ class apiMonitoringHandler(object):
         return res, exitcode
 
     def getCommonStats(self):
-        res = RRD(self.statRRDFile).getChartData(hours=1, grades=60)\
+        res = RRD(statRRDFile).getChartData(hours=1, grades=60)\
             if self.period == 'all'\
-            else RRD(self.statRRDFile).getLatestUpdate()
+            else RRD(statRRDFile).getLatestUpdate()
         exitcode = 200
         return res, exitcode
 
     def getSingleVioletStats(self):
         try:
             res = self.fetchSingleVioletStats(self.violet_id, self.period)
+            res.update(connected=self.vconn)
             exitcode = 200
         except Exception as e:
-            res = dict(message=e)
+            if 'No such file or directory' in e.args[0]:
+                message = 'No statistics found for {}'.format(self.violet_id)
+            else:
+                message = e
+            res = dict(message=message)
             exitcode = 400
         return res, exitcode
 
     def fetchSingleVioletStats(self, violet_id, period):
-        rrdinst = RRD("{}.rrd".format(violet_id), statType=VIOLET)
+        rrdinst = RRD("{0}/{1}.rrd".format(rrdDataDir, violet_id), statType=VIOLET)
         return rrdinst.getChartData(hours=1, grades=60)\
               if period == 'all'\
               else rrdinst.getLatestUpdate()

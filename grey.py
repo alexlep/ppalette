@@ -10,25 +10,28 @@ from core.mq import MQ
 from core.tools import parseConfig, initLogging, getUniqueID, Message
 from core.processing import Consumer
 from core.monitoring import RRD, Stats, CommonStats
-
-init_db(False)
-workingDir = os.path.dirname(os.path.abspath(__file__))
-greyConfig = workingDir + '/config/grey_config.json'
+from core.pvars import greyConfigFile, statRRDFile, rrdDataDir
 
 class Grey(object):
-    def __init__(self, configFile):
-        self.collectHistory = False
+    def __init__(self, configFile, testing=False):
         self.config = parseConfig(configFile)
         self.log = initLogging(self.config.log, __name__) # init logging
-        self.MQ = MQ(self.config.queue)#, self.log)
-        self.consumers = [ Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.inqueue), funct = self.callback) for _ in range(self.config.consumer_amount)]
-        self.monitoringConsumer = Consumer(self.MQ.initInRabbitPyQueue(self.config.queue.monitoring_inqueue), funct = self.updateVioletStats) # statistics from violets, monitoring_inqueue
-        self.rrdCommon = 'common_statistics.rrd'
+        self.status = CommonStats(db_session)
+        if not testing:
+            self.MQ = MQ(self.config.queue)
+            self.consumers = [ Consumer(self.MQ.initInRabbitPyQueue(
+                                            self.config.queue.inqueue),
+                                        funct=self.callback)
+                              for _ in range(self.config.consumer_amount)]
+            # statistics from violets, monitoring_inqueue
+            self.mConsumer = Consumer(self.MQ.initInRabbitPyQueue(
+                                        self.config.queue.monitoring_inqueue),
+                                        funct = self.updateVioletStats)
 
     def startConsumer(self):
         for c in self.consumers:
             c.start()
-        self.monitoringConsumer.start()
+        self.mConsumer.start()
         while True:
             self.updateCommonStats()
             time.sleep(3)
@@ -38,12 +41,10 @@ class Grey(object):
             c.join()
 
     def callback(self, body):
-        msg = Message(body, fromJSON = True)
+        msg = Message(body, fromJSON=True)
         if msg.type == 'check':
-            msg.time = datetime.strptime(msg.time, "%H:%M:%S:%d:%m:%Y")
-            msg.scheduled_time = datetime.strptime(msg.scheduled_time, "%H:%M:%S:%d:%m:%Y")
             self.updateStatusTable(msg)
-            if self.collectHistory:
+            if self.config.collect_history:
                 self.updateHistory(msg)
         elif msg.type == 'task':
             if msg.action == 'discovery':
@@ -54,64 +55,35 @@ class Grey(object):
         executed on every heartbeat message received from violet(s)
         """
         stats = Stats(data, fromJSON = True)
-        myrrd = RRD("{}.rrd".format(stats.identifier))
+        myrrd = RRD("{0}/{1}.rrd".format(rrdDataDir, stats.identifier))
         myrrd.insertValues(stats)
 
     def updateCommonStats(self):
         """
-        executed every N seconds in start functions, to gather common statistics, mostly from DB
+        executed every N seconds in start functions, to gather common
+        statistics, mostly from DB
         """
-        status = CommonStats()
-        status.hosts_active = db_session.query(Host.id).filter(Host.maintenance == False).count()
-        status.hosts_all = db_session.query(Host.id).count()
-        status.hosts_active_up = db_session.query(Host.id).join((Status, Host.stats)).\
-                                join((Plugin, Status.plugin)).\
-                                filter(Host.maintenance == False, Status.last_exitcode == 0, Plugin.script == 'check_ping').\
-                                count()
-        status.checks_active = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Host.maintenance == False).\
-                                count()
-        status.checks_all = db_session.query(Plugin.id).\
-                                join((Suite, Plugin.suites)).\
-                                join((Host, Suite.host)).\
-                                count()
-        status.checks_ok = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Status.last_exitcode == 0, Host.maintenance == False).\
-                                count()
-        status.checks_warn = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Status.last_exitcode == 1, Host.maintenance == False).\
-                                count()
-        status.checks_error = db_session.query(Status.id).\
-                                join((Host, Status.host)).\
-                                filter(Status.last_exitcode == 2, Host.maintenance == False).\
-                                count()
-        RRD(self.rrdCommon).insertValues(status)
+        self.status.update()
+        RRD(statRRDFile).insertValues(self.status)
 
     def updateStatusTable(self, msg):
-        updateQ = Status.__table__.update().\
-                  where(and_(Status.plugin_id == msg.plugin_id,
-                             Status.host_id == msg.host_id)).\
-                  values(last_status=msg.output, last_exitcode = msg.exitcode,
-                         last_check_run=msg.time,
-                         scheduled_check_time=msg.scheduled_time,
-                         interval=msg.interval)
+        statusRecord = db_session.query(Status).\
+                       filter(and_(Status.plugin_id == msg.plugin_id,\
+                                   Status.host_id == msg.host_id)).first()
+        if not statusRecord:
+            statusRecord = Status(msg)
+        else:
+            statusRecord.update(msg)
+            print 'hit'
         try:
-            if not db_session.execute(updateQ).rowcount:
-                insertQ = insert(Status).\
-                          values(plugin_id=msg.plugin_id, host_id=msg.host_id,
-                                 last_status=msg.output,
-                                 last_exitcode=msg.exitcode,
-                                 scheduled_check_time=msg.scheduled_time,
-                                 last_check_run=msg.time, interval=msg.interval)
-                db_session.execute(insertQ)
+            db_session.add(statusRecord)
+            db_session.commit()
         except Exception as e:
+            self.log.warning('{0}:{1} {2}'.format(statusRecord.host,
+                                                  statusRecord.plugin,
+                                                  e))
             print e
             pass
-        db_session.commit()
-        return
 
     def updateHistory(self, msg):
         h = History(msg)
@@ -135,15 +107,15 @@ class Grey(object):
         else:
             result = "AutoDiscovery: ip {0} is not reachable. Skipping.".\
                      format(msg.ipaddress)
-        print result
         return result
 
-GreyApp = Grey(greyConfig)
-
-print(' [*] Waiting for messages. To exit press CTRL+C')
-try:
-    GreyApp.startConsumer()
-except KeyboardInterrupt:
-    print ("ABORTING GREY LISTENER")
+if __name__ == "__main__":
+    #init_db(False)
+    GreyApp = Grey(greyConfigFile)
+    print(' [*] Waiting for messages. To exit press CTRL+C')
+    try:
+        GreyApp.startConsumer()
+    except KeyboardInterrupt:
+        print ("ABORTING GREY LISTENER")
     #GreyApp.destroy()
-    db_session.close()
+        db_session.close()

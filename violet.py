@@ -6,9 +6,7 @@ import time
 from core.mq import MQ
 from core.processing import Factory, Sender, Consumer
 from core.tools import draftClass, parseConfig, initLogging, getUniqueID
-
-workingDir = os.path.dirname(os.path.abspath(__file__))
-violetConfig = workingDir + '/config/violet_config.json'
+from core.pvars import violetConfigFile
 
 class Violet(object):
     def __init__(self, configFile):
@@ -61,6 +59,7 @@ class Violet(object):
     def _sendStats(self, interval=0):
         statistics = self.factory.gatherStats(interval)
         statistics.identifier = self.identifier
+        print statistics.tojson()
         self.MQ.sendStatM(self.senderStatsChannel, statistics.tojson())
 
     def _prepareConsumers(self):
@@ -79,6 +78,6 @@ class Violet(object):
                               pQueue=self.factory.out_process_queue_f))
 
 if __name__ =='__main__':
-    VioletApp = Violet(violetConfig)
+    VioletApp = Violet(violetConfigFile)
     signal.signal(signal.SIGINT, VioletApp)
     VioletApp.startProcesses()

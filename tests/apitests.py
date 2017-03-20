@@ -1,14 +1,23 @@
 import unittest
 import os
 import time
+import sys
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.sys.path.insert(0,parentdir)
 os.chdir(parentdir)
 
-# empty db
-from core.database import init_db
-init_db(True)
+from core.tools import checkDev
+import core.pvars as pv
+
+if not checkDev():
+    print 'Development mode is disabled - refusing to erase DB!'
+    sys.exit(1)
+else:
+    # empty db
+    from core.database import init_db
+    init_db(True)
+
 
 from red import RedApi
 
@@ -22,221 +31,277 @@ class apiTestClass(unittest.TestCase):
     # Host API tests
     def test0300(self):
         # post_create_localhost
-        result = self.app.post('/redapi/host?ipaddress=127.0.0.1')
+        params = dict(ipaddress='127.0.0.1')
+        result = self.app.post(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0400(self):
         # post_create_googledns
-        result = self.app.post('/redapi/host?ipaddress=8.8.8.8&hostname=googledns&login=googleuser')
+        params = dict(ipaddress='8.8.8.8',
+                      hostname='googledns',
+                      login='googleuser')
+        result = self.app.post(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0500(self):
         # post_create_googlesite_with_resolve
-        result = self.app.post('/redapi/host?ipaddress=216.58.214.206')
+        params = dict(ipaddress='216.58.214.206')
+        result = self.app.post(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0502(self):
         # post_create_bbc.com_with_resolve
-        result = self.app.post('/redapi/host?ipaddress=212.58.246.90')
+        params = dict(ipaddress='212.58.246.90')
+        result = self.app.post(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0504(self):
         # post_create_newyorker.com_with_resolve
-        result = self.app.post('/redapi/host?ipaddress=151.101.0.239')
+        params = dict(ipaddress='151.101.0.239')
+        result = self.app.post(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test0600(self):
         # put_edit_googledns
-        result = self.app.put('/redapi/host?ipaddress=8.8.8.8&hostname=googlednsnew&login=googleusernew')
+        params = dict(ipaddress='8.8.8.8',
+                      hostname='googlednsnew',
+                      login='googleusernew')
+        result = self.app.put(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test0700(self):
         # delete_remove_googledns
-        result = self.app.delete('/redapi/host?ipaddress=8.8.8.8')
+        params = dict(ipaddress='8.8.8.8')
+        result = self.app.delete(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test0800(self):
         # get_fetch_localhost
-        result = self.app.get('/redapi/host?ipaddress=127.0.0.1')
+        params = dict(ipaddress='127.0.0.1')
+        result = self.app.get(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test0900(self):
         # check_hosts_else
-        result = self.app.get('/redapi/hosts')
+        result = self.app.get(pv.HOSTS)
         self.assertEqual(result.status_code, 200)
 
     def test0910(self):
         # put_edit_localhost maintenance off
-        result = self.app.put('/redapi/host?ipaddress=127.0.0.1&maintenance=off')
+        params = dict(ipaddress='127.0.0.1',
+                      maintenance='off')
+        result = self.app.put(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0920(self):
         # put_edit_google maintenance off
-        result = self.app.put('/redapi/host?ipaddress=216.58.214.206&maintenance=off')
+        params = dict(ipaddress='216.58.214.206',
+                      maintenance='off')
+        result = self.app.put(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0930(self):
         # put_edit_bbc maintenance off
-        result = self.app.put('/redapi/host?ipaddress=212.58.246.90&maintenance=off')
+        params = dict(ipaddress='212.58.246.90',
+                      maintenance='off')
+        result = self.app.put(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test0940(self):
         # put_edit_newyorker maintenance off
-        result = self.app.put('/redapi/host?ipaddress=151.101.0.239&maintenance=off')
+        params = dict(ipaddress='151.101.0.239',
+                      maintenance='off')
+        result = self.app.put(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
     # Plugin API tests
     def test1000(self):
         # post_create_plugin
-        result = self.app.post('/redapi/plugin?customname=check_mysql_linux_test&script=check_mysql')
+        params = dict(customname='check_mysql_linux_test',
+                      script='check_mysql')
+        result = self.app.post(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test1100(self):
-        # post_create_plugin
-        result = self.app.put('/redapi/plugin?customname=check_mysql_linux_test&params=-w10 -c20')
+        # post_edit_plugin
+        params = dict(customname='check_mysql_linux_test',
+                      params='-w10 -c20')
+        result = self.app.put(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test1200(self):
-        # check_hosts_else
-        result = self.app.get('/redapi/plugin?customname=check_mysql_linux_test')
+        # get_fetch_plugin
+        params = dict(customname='check_mysql_linux_test')
+        result = self.app.get(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
+        assert '-w10 -c20' in result.data
 
     def test1300(self):
-        # post_create_plugin
-        result = self.app.post('/redapi/plugin?customname=check_load_linux_test&script=check_load&suite=defLinuxRemoteSuite')
+        # post_create_plugin_with_unknown_suite
+        params = dict(customname='check_load_linux_test',
+                      script='check_load',
+                      suite='defLinuxRemoteSuite')
+        result = self.app.post(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 400)
+        assert 'Suite is not in DB' in result.data
 
     def test1300(self):
         # delete_remove_plugin check_mysql_linux_test
-        result = self.app.delete('/redapi/plugin?customname=check_mysql_linux_test')
+        params = dict(customname='check_mysql_linux_test')
+        result = self.app.delete(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test1305(self):
         # get_removed_plugin check_mysql_linux_test, should be 404
-        result = self.app.get('/redapi/plugin?customname=check_mysql_linux_test')
+        params = dict(customname='check_mysql_linux_test')
+        result = self.app.get(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 404)
 
     def test1400(self):
         # post_create_plugin
-        result = self.app.post('/redapi/plugin?customname=check_ping1&script=check_ping')
+        params = dict(customname='check_ping1',
+                      script='check_ping')
+        result = self.app.post(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test1410(self):
         # post_create_plugin
-        result = self.app.post('/redapi/plugin?customname=check_ping2&script=check_ping')
+        params = dict(customname='check_ping2',
+                      script='check_ping')
+        result = self.app.post(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test1420(self):
         # post_create_plugin
-        result = self.app.post('/redapi/plugin?customname=check_https_local&script=check_https')
+        params = dict(customname='check_https_local',
+                      script='check_https')
+        result = self.app.post(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test1430(self):
-        # post_create_plugin
-        result = self.app.put('/redapi/plugin?customname=check_ping1&interval=10')
+        # put_edit_plugin
+        params = dict(customname='check_ping1',
+                      interval=10)
+        result = self.app.put(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test1440(self):
-        # post_create_plugin
-        result = self.app.put('/redapi/plugin?customname=check_ping2&interval=15')
+        # put_edit_plugin
+        params = dict(customname='check_ping2',
+                      interval=15)
+        result = self.app.put(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
-    def test1450(self):
-        # post_create_plugin
-        result = self.app.put('/redapi/plugin?customname=check_https_local&interval=13')
+        # put_edit_plugin
+        params = dict(customname='check_https_local',
+                      interval=20)
+        result = self.app.put(pv.PLUGIN, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test5000(self):
         # get_fetch_bbc
-        result = self.app.get('/redapi/host?ipaddress=151.101.0.239')
+        params = dict(ipaddress='151.101.0.239')
+        result = self.app.get(pv.HOST, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test5010(self):
         # post_create_suite with hosts
-        result = self.app.post('/redapi/suite?name=defaultSuite&ipaddress=216.58.214.206&ipaddress=212.58.246.90&ipaddress=151.101.0.239')
+        params = dict(name='defaultSuite',
+                      ipaddress='216.58.214.206,212.58.246.90,151.101.0.239')
+        result = self.app.post(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test5012(self):
         # get_fetch_suite
-        result = self.app.get('/redapi/suite?name=defaultSuite')
+        params = dict(name='defaultSuite')
+        result = self.app.get(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 200)
+        assert '212.58.246.90' in result.data
 
     def test5014(self):
         # delete_remove_suite
-        result = self.app.delete('/redapi/suite?name=defaultSuite')
+        params = dict(name='defaultSuite')
+        result = self.app.delete(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test5016(self):
         # get_removed_suite_must_fail
-        result = self.app.get('/redapi/suite?name=defaultSuite')
+        params = dict(name='defaultSuite')
+        result = self.app.get(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 404)
 
     def test5018(self):
         # post_create_suite must fail due to unknown ip
-        result = self.app.post('/redapi/suite?name=defaultSuite&ipaddress=216.58.214.206&ipaddress=212.58.246.90&ipaddress=151.101.0.239&ipaddress=127.0.0.200')
+        params = dict(name='defaultSuite',
+                      ipaddress="216.58.214.206,212.58.246.90,151.101.0.239,127.0.0.200")
+        result = self.app.post(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 400)
+        assert 'Host is not in DB' in result.data
 
     def test5020(self):
         # post_create_suite with plugins and hosts
-        result = self.app.post('/redapi/suite?name=defaultSuite&ipaddress=216.58.214.206&ipaddress=212.58.246.90&ipaddress=151.101.0.239&plugin=check_ping1&plugin=check_ping2&plugin=check_https_local')
+        params = dict(name='defaultSuite',
+                      ipaddress='216.58.214.206,212.58.246.90,151.101.0.239',
+                      plugin='check_ping1,check_ping2,check_https_local')
+        result = self.app.post(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test5022(self):
         # post_create_suite with plugins and hosts
-        result = self.app.put('/redapi/suite?name=defaultSuite&plugin=check_ping1&plugin=check_ping2')
+        params = dict(name='defaultSuite',
+                      plugin='check_ping1,check_ping2')
+        result = self.app.put(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test5024(self):
         # get_fetch_suite
-        result = self.app.get('/redapi/suite?name=defaultSuite')
+        params = dict(name='defaultSuite')
+        result = self.app.get(pv.SUITE, data=params)
         self.assertEqual(result.status_code, 200)
-
+        assert 'check_https_local' not in result.data
 
     # apiListCallHandler tests
     def test6100(self):
         # check_hosts
-        result = self.app.get('/redapi/hosts')
+        result = self.app.get(pv.HOSTS)
         self.assertEqual(result.status_code, 200)
 
     def test6102(self):
         # check_plugins
-        result = self.app.get('/redapi/plugins')
+        result = self.app.get(pv.PLUGINS)
         self.assertEqual(result.status_code, 200)
 
     def test6104(self):
         # check_suites
-        result = self.app.get('/redapi/suites')
+        result = self.app.get(pv.SUITES)
         self.assertEqual(result.status_code, 200)
 
     def test6106(self):
         # check_subnets should fail as of now, no subnets where added
-        result = self.app.get('/redapi/subnets')
+        result = self.app.get(pv.SUBNETS)
         self.assertEqual(result.status_code, 400)
 
     def test6108(self):
         # check_status
-        result = self.app.get('/redapi/status')
+        result = self.app.get(pv.STATUS)
         self.assertEqual(result.status_code, 200)
 
     # test subnets and discovery
     def test7000(self):
         # check adding new subnet
-        result = self.app.post('/redapi/subnet?name=poneyTelecomSubnet&subnet=62.210.18.0&netmask=255.255.255.192&suite=defaultSuite')
+        params = dict(name='poneyTelecomSubnet',
+                      subnet='62.210.18.0',
+                      netmask='255.255.255.192',
+                      suite='defaultSuite')
+        result = self.app.post(pv.SUBNET, data=params)
         self.assertEqual(result.status_code, 200)
-        
+
     def test7010(self):
-        # check discovery for added subnet - requests are sent to rabbitMQ
-        result = self.app.get('/redapi/ops?op=discovery&arg=poneyTelecomSubnet')
+        # trigger discovery for added subnet - requests are sent to rabbitMQ
+        params = dict(subnet='poneyTelecomSubnet')
+        result = self.app.get(pv.DISCOVERY, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test7020(self):
         # check get for added subnet
-        result = self.app.get('/redapi/subnet?name=poneyTelecomSubnet')
+        params = dict(name='poneyTelecomSubnet')
+        result = self.app.get(pv.SUBNET, data=params)
         self.assertEqual(result.status_code, 200)
 
     def test7022(self):
         # check list of subnets
-        result = self.app.get('/redapi/subnets')
+        result = self.app.get(pv.SUBNETS)
         self.assertEqual(result.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()

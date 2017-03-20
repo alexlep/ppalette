@@ -12,10 +12,15 @@ Usage:
   ppadm.py show (status|scheduler|workers)
   ppadm.py show monitoring --type=<type> [--period=<period>]
   ppadm.py show monitoring --type=violet --violet_id=<violet_id> [--period=<period>]
+  ppadm.py (get|delete) plugin --customname=<customname>
+  ppadm.py add plugin --customname=<customname> --script=<script> --interval=<interval> [--ssh_wrapper=(on|off)] [--params='<params>'] [--suite=<suite>...]
+  ppadm.py edit plugin --customname=<customname> [--interval=<interval>] [--ssh_wrapper=(on|off)] [--params='<params>'] [--suite=<suite>...]
+  ppadm.py (get|delete) suite --name=<name>
+  ppadm.py add suite --name=<name> [--ipaddress=<IPs>...] [--subnetname=<subnets>...] [--plugin=<plugins>...]
+  ppadm.py edit suite --name=<name> [--ipaddress=<IPs>...] [--subnetname=<subnets>...] [--plugin=<plugins>...]
 
 Options:
-  -h --help     Show this screen.
-
+  -h --help     Show this screen
 """
 import os
 import sys
@@ -82,12 +87,12 @@ def getOptions(arguments):
 def runApiCall(method, obj, params):
     try:
         r = getattr(requests, method)('{0}/{1}'.format(redApiUrl, obj),
-                                      params=params)
+                                      data=params)
     except requests.exceptions.ConnectionError as ce:
         print "Unable to connect to {}. Is red running?".format(redApiUrl)
         sys.exit(1)
     logging.debug(r.url)
-    return r.text
+    return (r.text, r.status_code)
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='ppadm 0.0.1')
@@ -96,7 +101,8 @@ if __name__ == '__main__':
     operation = getOperation(arguments)
     obj = getObj(arguments)
     method = request_types[operation]
-    logging.debug('operation={0},obj={1},method={2}'.format(operation, obj, method))
-
-    print runApiCall(method, obj, getOptions(arguments))
+    logging.debug('operation={0},obj={1},method={2}'.format(operation,
+                                                            obj,
+                                                            method))
+    print runApiCall(method, obj, getOptions(arguments))[0]
     sys.exit(0)

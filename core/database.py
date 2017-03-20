@@ -4,7 +4,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 # SQLite, for tests
-
+'''
 from sqlalchemy.pool import StaticPool
 url = 'sqlite:///ppalette.sqlite'
 engine = create_engine(url,
@@ -22,7 +22,7 @@ engine = create_engine(url, poolclass=QueuePool,
                        connect_args=dict(host=mysql_host, port=mysql_port),
                        pool_recycle=3600, pool_size=20, max_overflow=0,
                        isolation_level="READ UNCOMMITTED")
-'''
+
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=True,
                                          bind=engine))
