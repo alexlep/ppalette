@@ -26,6 +26,7 @@ Naming is inspired by __Ephel Duath's Painter's Palette (2003)__.
 ![alt tag](https://s15.postimg.org/cvgrjgv5n/ppalette.png "ppalette dataflow")
 
 **Green arrows**
+
 `red` service fetches information for each plugin and generates schedule
 based on interval of execution. Every N seconds scheduler is generating
 check requests, which are converted to json format and sent to RabbitMQ
@@ -38,17 +39,20 @@ for subnets, etc. At the moment only nagios scripts and discoveries are
 supported.
 
 **Blue arrows**
+
 `violet` performs checks on the hosts and collects outputs and exitcodes.
 `violet` supports execution of commands via ssh (via internal ssh
 wrapper). In case ssh is used - connection from `violet` nodes to the
 hosts should be configured via public ssh keys.
 
 **Magenta arrows**
+
 Once `violet` finishes check - it sends results to RabbitMQ, in json
 format. `grey` service is fetching result from result's queue, and
 inserts the data into the database.
 
 **Violet arrows**
+
 `violet` instances collect different statistical information, like
 throughput, amount of active(alive workers), etc. This information
 is sent to RabbitMQ every N seconds (heartbeat interval is configurable
@@ -57,6 +61,7 @@ from particular queue in RabbitMQ and inserts the data to RRD database
 files (separate file for each `violet` instance).
 
 **Cyan arrows**
+
 `grey` service collects statistical data from database, like amount of
 hosts, amount of pingable hosts, amount of services in ok/warning/error
 state (to count overall health status of environment, for example), and
@@ -64,6 +69,7 @@ etc. This information is inserted into RRD database file with common
 statistics every N seconds.
 
 **Orange arrows**
+
 `red` service contains __API__. It's possible to perform many operations on
 DB (fetching/adding/editing/deleting hosts/plugins/suites/networks),
 trigger automatic discovery tasks for hosts in specific subnets(tasks
@@ -72,6 +78,7 @@ are sent to RMQ and executed by violet instances), fetch statistics for
 active `violet` instances, show scheduler jobs.
 
 **Brown arrow**
+
 `ppadm` is command-line interface to API. It supports (or should support)
 all the operations available in API.
 
