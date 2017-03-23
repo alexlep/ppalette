@@ -70,3 +70,6 @@ class Scheduler(BackgroundScheduler):
     def sendCommonJobToMQ(self, jobMessage):
         msg = jobMessage.tojson(refreshTime=True)
         self.MQ.sendM(self.mqCommonJobsOutChannel, msg)
+
+    def getApiHostPortConfig(self):
+        return (self.config.webapi.host, self.config.webapi.port)
