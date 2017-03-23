@@ -1,3 +1,5 @@
 {
-  "development" : true
+  "development" : true,
+  "pid_path" : "/run",
+  "redapi_server" : "tornado"
 }
