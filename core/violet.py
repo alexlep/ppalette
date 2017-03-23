@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
-import signal
 import time
-from core.mq import MQ
-from core.processing import Factory, Sender, Consumer
-from core.tools import draftClass, parseConfig, initLogging, getUniqueID
-from core.pvars import violetConfigFile
+import signal
+from pvars import violetConfigFile
+from mq import MQ
+from processing import Factory, Sender, Consumer
+from tools import draftClass, parseConfig, initLogging, getUniqueID
 
 class Violet(object):
     def __init__(self, configFile):
@@ -76,8 +76,3 @@ class Violet(object):
                 append(Sender(mqChannel=self.MQ.initOutRabbitPyChannel(),
                               mqQueue=self.config.queue.outqueue,
                               pQueue=self.factory.out_process_queue_f))
-
-if __name__ =='__main__':
-    VioletApp = Violet(violetConfigFile)
-    signal.signal(signal.SIGINT, VioletApp)
-    VioletApp.startProcesses()

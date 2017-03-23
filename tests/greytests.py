@@ -10,8 +10,8 @@ os.chdir(parentdir)
 
 import core.pvars as pv
 from core.tools import checkDev, Message
-from grey import Grey, init_db, db_session
-from red import RedApi
+from core.grey import Grey, db_session
+from core.daemons import prepareRed
 
 if not checkDev():
     print 'Development is disabled - refusing to execute destructive tests!'
@@ -20,8 +20,13 @@ if not checkDev():
 class apiTestClass(unittest.TestCase):
     def setUp(self):
         self.greyApp = Grey(pv.greyConfigFile, testing=True)
-        self.redApp = RedApi.test_client()
+        self.redApp = self.RedApi.test_client()
         self.redApp.testing = True
+
+    @classmethod
+    def setUpClass(self):
+        super(apiTestClass, self).setUpClass()
+        self.RedApi = prepareRed()[0]
 
     def tearDown(self):
         db_session.close()

@@ -7,6 +7,7 @@ parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.sys.path.insert(0,parentdir)
 os.chdir(parentdir)
 
+from core.daemons import prepareRed
 from core.tools import checkDev
 import core.pvars as pv
 
@@ -19,12 +20,15 @@ else:
     init_db(True)
 
 
-from red import RedApi
-
 class apiTestClass(unittest.TestCase):
     def setUp(self):
-        self.app = RedApi.test_client()
+        self.app = self.RedApi.test_client()
         self.app.testing = True
+
+    @classmethod
+    def setUpClass(self):
+        super(apiTestClass, self).setUpClass()
+        self.RedApi = prepareRed()[0]
 
     def tearDown(self):
         pass

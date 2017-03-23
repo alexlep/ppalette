@@ -2,15 +2,15 @@
 import sys
 import os
 import time
-from core.database import init_db, db_session
-from core.models import Status, History, Subnet, Host, Suite, Plugin
 from datetime import datetime
 from sqlalchemy import update, insert, and_
-from core.mq import MQ
-from core.tools import parseConfig, initLogging, getUniqueID, Message
-from core.processing import Consumer
-from core.monitoring import RRD, Stats, CommonStats
-from core.pvars import greyConfigFile, statRRDFile, rrdDataDir
+from database import init_db, db_session
+from models import Status, History, Subnet, Host, Suite, Plugin
+from mq import MQ
+from tools import parseConfig, initLogging, getUniqueID, Message
+from processing import Consumer
+from monitoring import RRD, Stats, CommonStats
+from pvars import greyConfigFile, statRRDFile, rrdDataDir
 
 class Grey(object):
     def __init__(self, configFile, testing=False):
@@ -108,14 +108,3 @@ class Grey(object):
             result = "AutoDiscovery: ip {0} is not reachable. Skipping.".\
                      format(msg.ipaddress)
         return result
-
-if __name__ == "__main__":
-    #init_db(False)
-    GreyApp = Grey(greyConfigFile)
-    print(' [*] Waiting for messages. To exit press CTRL+C')
-    try:
-        GreyApp.startConsumer()
-    except KeyboardInterrupt:
-        print ("ABORTING GREY LISTENER")
-    #GreyApp.destroy()
-        db_session.close()
