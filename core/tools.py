@@ -9,7 +9,7 @@ import datetime as dt
 import time
 from sshexecutor import SSHConnection
 from ipaddress import ip_address, ip_network, IPv4Network
-from pvars import commonConfigFile, defTimeFormat
+from pvars import commonConfigFile, redConfigFile, defTimeFormat, workingDir
 
 class Message(object):
     type = None
@@ -228,6 +228,12 @@ def validatePage(value):
 
 def checkDev():
     return parseConfig(commonConfigFile).development
+
+def getPidPath():
+    return workingDir + parseConfig(commonConfigFile).pid_path
+
+def getApiServerType():
+    return parseConfig(commonConfigFile).redapi_server
 
 def strToDate(dateStr):
     return dt.datetime.strptime(dateStr, defTimeFormat)
