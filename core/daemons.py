@@ -4,7 +4,7 @@ def prepareRed():
     from flask import Flask
     from redapi import initRedApiBP
     from pscheduler import Scheduler
-    from env import redConfigFile
+    from pvars import redConfigFile
 
     RedScheduler = Scheduler(redConfigFile)
     RedScheduler.start()

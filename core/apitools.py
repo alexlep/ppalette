@@ -1,7 +1,7 @@
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.exc import IntegrityError
 
-from env import statRRDFile, rrdDataDir
+from pvars import statRRDFile, rrdDataDir
 from tools import validateIP, validateNetwork, resolveIP, validateInt,\
                   validatePage
 from models import Host, Subnet, Plugin, History, Suite, Status
