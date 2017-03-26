@@ -2,17 +2,18 @@
   "process_count" : 1,
   "webapi" : {
     "enabled" : true,
-    "host" : "127.0.0.1",
+    "host" : "localhost",
     "port" : 5000
   },
   "queue" : {
     "host" : "127.0.0.1",
     "port" : 5672,
     "monitoring_port" : 15672,
-    "user" : "guest",
-    "password" : "guest",
+    "user" : "red",
+    "password" : "red",
     "inqueue" : "",
-    "outqueue" : "redqueue"
+    "outqueue" : "redqueue",
+    "vhost" : "pp_vhost"
   },
   "log": {
     "log_file" : "logs/red.log",

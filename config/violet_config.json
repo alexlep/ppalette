@@ -5,6 +5,7 @@
     "port" : 5672,
     "user" : "violet",
     "password" : "violet",
+    "vhost" : "pp_vhost",
     "inqueue" : "redqueue",
     "outqueue" : "violetqueue",
     "consumer_amount" : 16,

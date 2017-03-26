@@ -40,10 +40,11 @@ class myConnection(rabbitpy.Connection):
 class MQ(object):
     def __init__(self, config, violet=False):
         self.config = config
-        self.pyurl = 'amqp://{0}:{1}@{2}:{3}/%2F'.format(self.config.user,
+        self.pyurl = 'amqp://{0}:{1}@{2}:{3}/{4}'.format(self.config.user,
                                                          self.config.password,
                                                          self.config.host,
-                                                         self.config.port)
+                                                         self.config.port,
+                                                         self.config.vhost)
         try:
             self.PyConnection = myConnection(self.pyurl) if violet\
             else rabbitpy.Connection(self.pyurl)
