@@ -307,5 +307,25 @@ class apiTestClass(unittest.TestCase):
         result = self.app.get(pv.SUBNETS)
         self.assertEqual(result.status_code, 200)
 
+    def test7030(self):
+        # check adding new subnet with wrong subnet
+        params = dict(name='wrongSubnet',
+                      subnet='192.168.30.0',
+                      netmask='255.255.255.191',
+                      suite='defaultSuite')
+        result = self.app.post(pv.SUBNET, data=params)
+        self.assertEqual(result.status_code, 400)
+        assert 'Wrong subnet/netmask' in result.data
+
+        # check adding new subnet with wrong subnet
+        params = dict(name='unexistingSuite',
+                      subnet='192.168.30.0',
+                      netmask='255.255.255.192',
+                      suite='unknownSuite')
+        result = self.app.post(pv.SUBNET, data=params)
+        self.assertEqual(result.status_code, 400)
+        assert 'Suite {} not found in db'.format(params.get('suite')) \
+               in result.data
+
 if __name__ == '__main__':
     unittest.main()

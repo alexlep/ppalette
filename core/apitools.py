@@ -14,6 +14,7 @@ STATUS_ERROR = 2
 VIOLET = 'violet'
 COMMON = 'common'
 
+
 def apiValidateMandParam(option, params):
     value = params.get(option)
     if not value:
@@ -99,7 +100,7 @@ class apiSingleCallHandler(object):
             params_checked = self.checker()
         except ValueError as ve:
             return (dict(message=ve.message), 400)
-        newRecord = self.dbmodel(*params_checked)
+        newRecord = self.dbmodel(**params_checked)
         db_session.add(newRecord)
         try:
             db_session.commit()
@@ -134,7 +135,7 @@ class apiSingleCallHandler(object):
             except ValueError as ve:
                 res = dict(message=ve.message)
                 return (res, 400)
-            record.updateParams(*params_checked)
+            record.updateParams(**params_checked)
             db_session.add(record)
             try:
                 db_session.commit()
@@ -175,89 +176,89 @@ class apiSingleCallHandler(object):
         return (res, exitcode)
 
     def parseParamsForPlugin(self):
-        suiteDB = None
+        res = dict()
         if not self.edit:
             customname = apiValidateMandParam(self.identificator,
                                               self.params)
             script = apiValidateMandParam('script', self.params)
+            res.update(customname=customname, script=script)
         else:
             script = self.params.get('script')
-        interval = apiValidateIntegerParam('interval', self.params)
-        script_params = self.params.get('params')
-        ssh_wrapper = apiValidateTriggerParam('ssh_wrapper', self.params)
+            res.update(script=script)
+        res.update(interval=apiValidateIntegerParam('interval', self.params))
+        res.update(params=self.params.get('params'))
+        res.update(ssh_wrapper=apiValidateTriggerParam('ssh_wrapper',
+                                                       self.params))
         suites = self.params.getlist('suite')
-        suitesDB = self.genRecList(suites, Suite) if suites else None
-        if not self.edit:
-            res = (script, customname, interval, script_params, ssh_wrapper,
-                   suiteDB)
-        else:
-            res = (script, interval, script_params, ssh_wrapper, suitesDB)
+        res.update(suites=self.genRecList(suites, Suite) if suites else None)
         return res
 
     def parseParamsForSuite(self):
+        res = dict()
         name = apiValidateMandParam(self.identificator, self.params)
-        subnets = self.params.getlist('subnetname')
-        ips = self.params.getlist('ipaddress')
-        plugins = self.params.getlist('plugin')
-        ipsDB = self.genRecList(ips, Host) if ips else None
-        pluginsDB = self.genRecList(plugins, Plugin) if plugins \
-                                                          else None
-        subnetsDB = self.genRecList(subnets, Subnet) if subnets \
-                                                          else None
         if not self.edit:
-            res = (name, ipsDB, pluginsDB, subnetsDB)
-        else:
-            res = (ipsDB, pluginsDB, subnetsDB)
+            res.update(name=name)
+        ips = self.params.getlist('ipaddress')
+        subnets = self.params.getlist('subnetname')
+        plugins = self.params.getlist('plugin')
+        res.update(hosts=self.genRecList(ips, Host) if ips else None)
+        res.update(plugins=self.genRecList(plugins,Plugin) if plugins else None)
+        res.update(subnets=self.genRecList(subnets, Subnet) \
+                   if subnets else None)
         return res
 
     def parseParamsForHost(self):
-        suiteID = subnetID = None
+        res = dict()
         if not self.edit:
             ip = apiValidateMandParam(self.identificator, self.params)
             if not validateIP(ip):
-                raise ValueError("Failed to validate IP!")
-        suite = self.params.get('suite')
+                raise ValueError("Failed to validate IP {}".format(ip))
+            res.update(ip=ip)
+            res.update(hostname=self.params.get('hostname') or resolveIP(ip))
+        else:
+            res.update(maintenance=apiValidateTriggerParam('maintenance',
+                                                           self.params))
+            res.update(hostname=self.params.get('hostname'))
+        suite = self.params.get('suite_id')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
             if not suiteDB:
-                raise ValueError("Provided suite was not found in DB")
+                raise ValueError("Suite {} was not found in DB".format(suite))
             else:
-                suiteID = suiteDB.id
+                res.update(suite_id=suiteDB.id)
         subnet = self.params.get('subnet')
         if subnet:
             subnetDB = Subnet.query.filter(Subnet.name == subnet).first()
             if not subnetDB:
-                raise ValueError("Provided subnet was not found in DB")
+                raise ValueError("Subnet {} was not found in DB".format(subnet))
             else:
-                if not suite:
-                    suiteID = subnetDB.suite.id
-                subnetID = subnetDB.id
-        login = self.params.get('login')
-        if not self.edit:
-            hostname = self.params.get('hostname') or resolveIP(ip)
-            res = (ip, suiteID, subnetID, hostname, login)
-        else:
-            maintenance = apiValidateTriggerParam('maintenance', self.params)
-            hostname = self.params.get('hostname')
-            res = (suiteID, subnetID, hostname, login, maintenance)
+                res.update(subnetID=subnetDB.id)
+                if not res.get('suite_id'):
+                    res.update(suite_id=subnetDB.suite.id)
+        res.update(enablehistory=apiValidateTriggerParam('history',
+                                                         self.params))
+        res.update(login=self.params.get('login'))
         return res
 
     def parseParamsForSubnet(self):
-        suiteID = None
-        name = apiValidateMandParam(self.identificator, self.params)
+        res = dict()
+        if not self.edit:
+            res.update(name=apiValidateMandParam(self.identificator,
+                                                 self.params))
         subnet = apiValidateMandParam('subnet', self.params)
         netmask = apiValidateMandParam('netmask', self.params)
-        if not validateNetwork(subnet, netmask):
-            raise ValueError("Failed to validate subnet/netmask {0}/{1}!".\
-            format(subnet, netmask))
+        if validateNetwork(subnet, netmask):
+            res.update(subnet=subnet, netmask=netmask)
+        else:
+            raise ValueError("Wrong subnet/netmask {0}/{1}".format(subnet,
+                                                                   netmask))
         suite = self.params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
-            if not suiteDB:
-                raise ValueError("Suite {} not found in db".format(suite))
+            if suiteDB:
+                res.update(suite_id=suiteDB.id)
             else:
-                suiteID = suiteDB.id
-        res = (name, subnet, netmask, suiteID)
+                raise ValueError("Suite {} not found in db".format(suite))
         return res
 
     def genRecList(self, IDs, dbmodel):

@@ -33,31 +33,25 @@ class RedBase(Base):
 class Suite(RedBase):
     __tablename__ = 'suite'
     paramsShort = ['id', 'name']
-    paramsFull = paramsShort + ['host', 'subnet', 'plugins']
+    paramsFull = paramsShort + ['hosts', 'subnets', 'plugins']
     id = Column(Integer, primary_key=True)
     name = Column(String(100), unique=True)
     description = Column(String(100))
-    host = relationship('Host', back_populates='suite')
-    subnet = relationship('Subnet', back_populates='suite')
+    hosts = relationship('Host', back_populates='suite')
+    subnets = relationship('Subnet', back_populates='suite')
     plugins = relationship('Plugin',
                            secondary=pluginsToSuites,
                            backref=backref('suitos', lazy='select'))
-    def __init__(self, name, ipsDB=None, pluginsDB=None, subnetsDB=None):
+    def __init__(self, name, **kwargs):
         self.name = name
-        if ipsDB:
-            self.host = ipsDB
-        if subnetsDB:
-            self.subnet = subnetsDB
-        if pluginsDB:
-            self.plugins = pluginsDB
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
-    def updateParams(self, ipsDB=None, pluginsDB=None, subnetsDB=None):
-        if ipsDB:
-            self.host = ipsDB
-        if subnetsDB:
-            self.subnet = subnetsDB
-        if pluginsDB:
-            self.plugins = pluginsDB
+    def updateParams(self, **kwargs):
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
     def __unicode__(self):
         return self.name
@@ -85,31 +79,17 @@ class Plugin(RedBase):
                           backref=backref('pluginos', lazy='select'))
     stats = relationship('Status', cascade='all, delete-orphan')
 
-    def __init__(self, script=None, customname=None,
-                 interval=None, params=None,
-                 ssh_wrapper=None, suitesDB=None):
+    def __init__(self, script, customname, **kwargs):
         self.script = script
         self.customname = customname
-        self.params = params
-        if ssh_wrapper:
-            self.ssh_wrapper = ssh_wrapper
-        if interval:
-            self.interval = interval
-        if suitesDB:
-            self.suites = suitesDB
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
-    def updateParams(self, script=None, interval=None, params=None,
-                     ssh_wrapper=None, suitesDB=None):
-        if script:
-            self.script = script
-        if interval:
-            self.interval = interval
-        if params:
-            self.params = params
-        if suitesDB:
-            self.suites = suitesDB
-        if ssh_wrapper:
-            self.ssh_wrapper = ssh_wrapper
+    def updateParams(self, **kwargs):
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
     def __unicode__(self):
         return self.customname
@@ -134,49 +114,21 @@ class Host(RedBase):
     subnet_id = Column(Integer, ForeignKey('subnet.id'))
     subnet = relationship('Subnet', lazy='select')
     stats = relationship('Status', cascade='all, delete-orphan')
+    enablehistory = Column(Boolean, default=False)
 
-    def __init__(self, ip=None, suiteID=None, subnetID=None, hostname=None,
-                 login=None):
+    def __init__(self, ip, **kwargs):
         self.ipaddress = ip
-        self.hostname = hostname
-        self.suite_id = suiteID
-        self.subnet_id = subnetID
-        if login:
-            self.login = login
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
+
+    def updateParams(self, **kwargs):
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
     def __unicode__(self):
         return self.hostname
-
-    def maintenanceON(self):
-        if self.maintenance:
-            res = False
-        else:
-            self.maintenance = res = True
-        return res
-
-    def maintenanceOFF(self):
-        if self.maintenance:
-            self.maintenance = False
-            res = True
-        else:
-            res = False
-        return res
-
-    def updateParams(self, suiteID, subnetID, hostname, login, maintenance):
-        if hostname:
-            self.hostname = hostname
-        if login:
-            self.login = login
-        if subnetID:
-            self.subnet_id = subnetID
-        if suiteID:
-            if self.suite_id:
-                self.stats[:] = list()
-            self.suite_id = suiteID
-        if maintenance:
-            self.maintenanceON()
-        else:
-            self.maintenanceOFF()
 
     def APIGetDict(self, short=True):
         return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)
@@ -260,22 +212,18 @@ class Subnet(RedBase):
     suite_id = Column(Integer, ForeignKey('suite.id'))
     suite = relationship('Suite')
 
-    def __init__(self, name=None, subnet=None, netmask=None, suiteID=None):
+    def __init__(self, name, subnet, netmask, **kwargs):
         self.name = name
         self.subnet = subnet
         self.netmask = netmask
-        if suiteID:
-            self.suite_id = suiteID
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
-    def updateParams(self, name=None, subnet=None, netmask=None, suiteID=None):
-        if name:
-            self.name = name
-        if subnet:
-            self.subnet = subnet
-        if netmask:
-            self.netmask = netmask
-        if suiteID:
-            self.suite_id = suiteID
+    def updateParams(self, **kwargs):
+        for argsItem, argsValue in kwargs.items():
+            if argsValue is not None:
+                setattr(self, argsItem, argsValue)
 
     def __unicode__(self):
         return self.name

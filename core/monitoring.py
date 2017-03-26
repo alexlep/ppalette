@@ -47,7 +47,7 @@ class CommonStats(object):
                                 count()
         self.checks_all = self.dbs.query(Plugin.id).\
                                 join((Suite, Plugin.suites)).\
-                                join((Host, Suite.host)).\
+                                join((Host, Suite.hosts)).\
                                 count()
         self.checks_ok = self.dbs.query(Status.id).\
                                 join((Host, Status.host)).\
