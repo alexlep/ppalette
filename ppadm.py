@@ -29,12 +29,10 @@ from docopt import docopt
 
 from core.tools import parseConfig
 import logging
+from core.pvars import redConfigFile
 
 LOGLEVEL = "DEBUG"
 logging.basicConfig(stream=sys.stderr, level=getattr(logging, LOGLEVEL))
-
-workingDir = os.path.dirname(os.path.abspath(__file__))
-redConfigFile = workingDir + '/config/red_config.json'
 
 config = parseConfig(redConfigFile)
 

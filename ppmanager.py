@@ -19,13 +19,20 @@ from core.database import init_db
 apiServer = getApiServerType()
 
 if apiServer == 'tornado':
-    from core.daemons import redServerTornado as redServer
-    from core.daemons import startRedTornado as startRed
+    try:
+        from tornado import version
+        from core.daemons import redServerTornado as redServer
+        from core.daemons import startRedTornado as startRed
+    except ImportError:
+        print 'WARNING: Config is set to tornado, but tornado seems not'
+        print 'to be installed. Will use werkzeug for red.'
+        from core.daemons import redServerWerkzeug as redServer
+        from core.daemons import startRedWerkzeug as startRed
 else:
     if apiServer != 'werkzeug':
         print 'WARNING: not able to process value for API server type'
         print 'tornado and werkzeug are supported'
-        print 'Selecting werkzeug as default'
+        print 'Selecting werkzeug as default for red service'
     from core.daemons import redServerWerkzeug as redServer
     from core.daemons import startRedWerkzeug as startRed
 
