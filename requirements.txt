@@ -1,6 +1,6 @@
 Flask
 SQLAlchemy
-python-rrdtool
+rrdtool
 paramiko
 apscheduler
 rabbitpy
