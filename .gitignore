@@ -1,8 +1,10 @@
 *.pyc
 *.sqlite
 *.log
-log/
+logs/
 garbage*
 trash/
 *.rrd
 *.pid
+rrd_data/
+*.rrd
