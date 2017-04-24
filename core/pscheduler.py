@@ -3,14 +3,14 @@ from datetime import datetime, timedelta
 #from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from tools import parseConfig, initLogging, Message,\
-                        prepareDictFromSQLA, getUniqueID
+from tools import Message, prepareDictFromSQLA, getUniqueID, dateToStr
 from mq import MQ
 from models import Plugin, Host, Suite, Subnet
 from database import db_session
+from configs import rConfig, rLogger
 
 class Scheduler(BackgroundScheduler):
-    def __init__(self, configFile):
+    def __init__(self):
         super(BackgroundScheduler, self).__init__(\
             {
                 'apscheduler.executors.default':
@@ -19,16 +19,11 @@ class Scheduler(BackgroundScheduler):
                     'max_workers': '1'
                 }
             })
-        self.config = parseConfig(configFile)
-        try:
-            self.log = initLogging(self.config.log, __name__)
-        except IOError as ioe:
-            print "Unable to reach log file {}".format(ioe.filename)
-            print "Error: {}".format(ioe.strerror)
-            sys.exit(1)
-        self.MQ = MQ(self.config.queue) # init MQ
+        self.MQ = MQ(rConfig.queue) # init MQ
         self.mqCommonJobsOutChannel = self.MQ.initOutRabbitPyChannel()
-        self.fillSchedule()
+        schStartTime = self.fillSchedule()
+        rLogger.info("Scheduler was successfully initialized. Start planned "\
+                     "at {}".format(dateToStr(schStartTime)))
 
     def _prepareStartTime(self, delta):
         startDelay = timedelta(0, delta)
@@ -42,6 +37,7 @@ class Scheduler(BackgroundScheduler):
         startTime = self._prepareStartTime(10)
         for plug in db_session.query(Plugin):
             self.registerJob(plugin=plug, jobStartTime=startTime)
+        return startTime
 
     def registerJob(self, plugin, jobStartTime=False):
         """
@@ -57,19 +53,25 @@ class Scheduler(BackgroundScheduler):
         self.add_job(self.sendPluginJobsToMQ, **job_params)
 
     def sendPluginJobsToMQ(self, pluginUUID):
+        counter = 0
         plugin = Plugin.query.filter(Plugin.pluginUUID == pluginUUID).first()
         for suite in plugin.suites:
-            for host in suite.host:
+            for host in suite.hosts:
                 if not host.maintenance:
                     checkJob = Message(plugin=plugin, host=host,
                                        suite=suite)
                     checkJob.type = 'check'
+                    checkJob.scheduled_time = dateToStr(datetime.now())
+                    checkJob.message_id = getUniqueID()
                     self.sendCommonJobToMQ(checkJob)
+                    counter += 1
+        rLogger.info("Plugin {0}, interval {1}, sent {2} check to RMQ".\
+                     format(plugin.customname, plugin.interval, str(counter)))
 
     ### --------------------------------------
     def sendCommonJobToMQ(self, jobMessage):
-        msg = jobMessage.tojson(refreshTime=True)
+        msg = jobMessage.tojson()
         self.MQ.sendM(self.mqCommonJobsOutChannel, msg)
 
     def getApiHostPortConfig(self):
-        return (self.config.webapi.host, self.config.webapi.port)
+        return (rConfig.webapi.host, rConfig.webapi.port)

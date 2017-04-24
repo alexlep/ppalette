@@ -31,14 +31,13 @@ class Message(object):
     exitcode = None
     time = None
     executor = None
+    message_id = None
     def __init__ (self, data=False, fromJSON=False, plugin=False,
                   suite=False, host=False, subnet=False):
         if fromJSON:
             data = json.loads(data)
         if data:
             self.__dict__.update(data)
-            self.time = strToDate(self.time)
-            self.scheduled_time = strToDate(self.scheduled_time)
         if plugin:
             self.pluginUUID = plugin.pluginUUID
             self.plugin_id = plugin.id
@@ -58,19 +57,29 @@ class Message(object):
             self.subnet_id = subnet.id
             self.suite_id = subnet.suite_id
 
-    def getScheduleJobID(self):
-        return self.hostUUID + self.pluginUUID
+    def convertStrToDate(self):
+        self.exec_time = strToDate(self.exec_time)
+        self.scheduled_time = strToDate(self.scheduled_time)
 
-    def tojson(self, refreshTime = False):
-        if refreshTime:
-            self.scheduled_time = dateToStr(dt.datetime.now())
-        return json.dumps(self.__dict__)
+    def tojson(self):
+        try:
+            res = json.dumps(self.__dict__)
+        except UnicodeDecodeError:
+            self.removeWrongASCIISymbols()
+            res = json.dumps(self.__dict__)
+        return res
 
     def prepareSSHCommand(self):
         return "{0} {1}".format(self.executor, self.params)
 
     def prepareLocalCommand(self):
-        return "{0} {1} {2}".format(self.executor, self.params, self.ipaddress)
+        if self.params is None:
+            res = "{0} {1}".format(self.executor, self.ipaddress)
+        else:
+            res = "{0} {1} {2}".format(self.executor,
+                                       self.params,
+                                       self.ipaddress)
+        return res
 
     def prepareDiscoveryCommand(self):
         return "ping -c3 -W1 {0}".format(self.ipaddress)
@@ -88,10 +97,17 @@ class draftClass:
     def tojson(self):
         return json.dumps(self.__dict__)
 
+    def expandPaths(self):
+        for key in self.__dict__.keys():
+            try:
+                self.__dict__[key] = os.path.expanduser(self.__dict__[key])
+            except:
+                pass
+
 def time_wrap(func):
     def func_wrapper(*args, **kwargs):
         data = func(*args, **kwargs)
-        data.time = dateToStr(dt.datetime.now())
+        data.exec_time = dateToStr(dt.datetime.now())
         return data
     return func_wrapper
 
@@ -141,22 +157,27 @@ def executeProcess(job):
 @time_wrap
 def executeProcessViaSSH(job, ssh_config):
     if not (os.path.isfile(ssh_config.host_key_file)) or \
-       not (os.path.isfile(ssh_config.host_key_file)):
-        raise IOError
+       not (os.path.isfile(ssh_config.rsa_key_file)):
+        raise IOError('Unable to reach ssh configuration files.')
     conn = SSHConnection(ipaddress=job.ipaddress,
                          user=job.login,
                          ssh_config=ssh_config)
     job.output, job.details, job.exitcode = conn.executeCommand(job.prepareSSHCommand()) # here remote connection is killed
     return job
 
-def initLogging(logconfig, serviceName = str()):
-    logger = logging.getLogger(serviceName)
+def initLogging(logconfig, service = str()):
+    logger = logging.getLogger(service)
     hdlr = logging.FileHandler(logconfig.log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(getattr(logging, logconfig.log_level))
     return logger
+
+def initStdoutLogger():
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    return logging.getLogger(str())
+
 """
 def prepareDict(converted,**kwargs):
     data = {}
@@ -235,8 +256,34 @@ def getPidPath():
 def getApiServerType():
     return parseConfig(commonConfigFile).redapi_server
 
-def strToDate(dateStr):
-    return dt.datetime.strptime(dateStr, defTimeFormat)
+def strToDate(dateStr, now=False):
+    if not now:
+        res = dt.datetime.strptime(dateStr, defTimeFormat)
+    else:
+        res = dt.datetime.strptime(dt.datetime.now(), defTimeFormat)
+    return res
 
-def dateToStr(dateObj):
-    return dateObj.strftime(defTimeFormat)
+def dateToStr(dateObj=None):
+    if dateObj is not None:
+        res = dateObj.strftime(defTimeFormat)
+    else:
+        res = dt.datetime.now().strftime(defTimeFormat)
+    return res
+
+def pluginDict(pluginPaths, logger=None):
+    tPlugDict = dict()
+    for path in pluginPaths.split(';'):
+        if path:
+            try:
+                scripts = os.listdir(path)
+            except OSError as (errno, strerror):
+                if logger:
+                    logger.warning("Unable to access directory {0} to get plugins. Reason: {1}.".format(path, strerror))
+                continue
+            if not len(scripts):
+                if logger:
+                    logger.warning("No plugins found in {0} directory is empty. Skipping it.".format(path))
+            else:
+                for script in scripts:
+                    tPlugDict[script] = "{0}/{1}".format(path, script)
+    return tPlugDict

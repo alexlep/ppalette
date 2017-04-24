@@ -7,12 +7,13 @@ from models import Host, Subnet, Plugin, History, Suite, Status
 from apitools import apiSingleCallHandler, apiListCallHandler,\
                      apiMonitoringHandler
 import pvars as pv
+from configs import rConfig
 
 PER_PAGE = 10
 
 def initRedApiBP(scheduler):
     redapiBP = Blueprint('redapi_blueprint', __name__)
-    apiMQ = MQ(scheduler.config.queue)
+    apiMQ = MQ(rConfig.queue)
     redApiOutChannel = apiMQ.initOutRabbitPyChannel()
 
     @redapiBP.route(pv.MONITORING)
@@ -202,7 +203,7 @@ def initRedApiBP(scheduler):
                 discoveryJob.action = 'discovery'
                 discoveryJob.type = 'task'
                 apiMQ.sendM(redApiOutChannel,
-                            discoveryJob.tojson(refreshTime=True))
+                            discoveryJob.tojson())
             res = dict(message='Discovery request for {} was sent to clients'.\
                        format(subnetname))
             exitcode = 200

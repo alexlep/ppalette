@@ -219,7 +219,7 @@ class apiSingleCallHandler(object):
             res.update(maintenance=apiValidateTriggerParam('maintenance',
                                                            self.params))
             res.update(hostname=self.params.get('hostname'))
-        suite = self.params.get('suite_id')
+        suite = self.params.get('suite')
         if suite:
             suiteDB = Suite.query.filter(Suite.name == suite).first()
             if not suiteDB:
@@ -401,7 +401,8 @@ class apiMonitoringHandler(object):
         return res, exitcode
 
     def fetchSingleVioletStats(self, violet_id, period):
-        rrdinst = RRD("{0}/{1}.rrd".format(rrdDataDir, violet_id), statType=VIOLET)
+        rrdinst = RRD("{0}/{1}.rrd".format(rrdDataDir, violet_id),
+                      statType=VIOLET)
         return rrdinst.getChartData(hours=1, grades=60)\
               if period == 'all'\
               else rrdinst.getLatestUpdate()

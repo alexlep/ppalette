@@ -53,11 +53,14 @@ class MQ(object):
             sys.exit(1)
 
     def initInRabbitPyQueue(self, mqInQueue=None):
-        inChannel = self.PyConnection.channel()
+        inChannel = self.initInRabbitPyChannel()
         Queue = rabbitpy.Queue(inChannel, mqInQueue or self.config.inqueue)
         Queue.durable = True
         Queue.declare()
         return Queue
+
+    def initInRabbitPyChannel(self):
+        return self.PyConnection.channel()
 
     def initOutRabbitPyChannel(self, mqOutQueue=None):
         outChannel = self.PyConnection.channel()
@@ -67,7 +70,7 @@ class MQ(object):
         return outChannel
 
     def prepareMsg(self, ch, data):
-        return rabbitpy.Message(ch, data)
+        return rabbitpy.Message(ch, data, opinionated=False)
 
     def sendM(self, ch, msg):
         message = self.prepareMsg(ch, msg)

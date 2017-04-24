@@ -1,32 +1,46 @@
 # -*- coding: utf-8 -*-
+import rabbitpy
+import logging
+import functools
 from threading import Thread
 from multiprocessing import Process, Manager
-from datetime import datetime
-import time
+from concurrent.futures import ThreadPoolExecutor
 
 import tools
-from rabbitpy import Message
 from monitoring import Stats
+from configs import vLogger
 
-class Sender(Thread):
-    def __init__(self, mqChannel, mqQueue, pQueue):
-        super(Sender, self).__init__()
+class ProcessingException(Exception):
+    def __init__(self, message=None):
+        super(ProcessingException, self).__init__(message)
+        #self.errors = errors
+
+class Publisher(Thread):
+    def __init__(self, ch, qName, pQueue=None, callback=None):
+        super(Publisher, self).__init__()
         self.name = 'mqOutChannelThread'
-        self.mqChannel = mqChannel
-        self.mqQueue = mqQueue
+        self.ch = ch
+        self.qName = qName
+        self.pQueue = pQueue
+        self.callback = callback
         self.daemon = True
         self.active = True
-        self.out_process_queue = pQueue
+        self.counter = 0
+        self.max_counter = 0
 
     def run(self):
-        self.max_counter = 0
-        self.counter = 0
         while self.active:
             try:
-                msg = self.out_process_queue.get(True)
-                if msg == 'break': break
-                message = Message(self.mqChannel, msg)
-                message.publish('', self.mqQueue)
+                if self.pQueue:
+                    msg = self.pQueue.get(True)
+                elif self.callback:
+                    msg = self.callback()
+                if msg == 'break':
+                    self.active = False
+                    self.ch.close()
+                    break
+                message = rabbitpy.Message(self.ch, msg)
+                message.publish('', self.qName)
                 self.counter += 1
             except EOFError:
                 print self.name, 'IOERROR, expected'
@@ -35,131 +49,112 @@ class Sender(Thread):
                 print "{}, unexpected".format(e)
 
     def getProcessedTasksCounter(self):
-        processedCount = self.counter
+        if self.counter > self.max_counter:
+            self.max_counter = self.counter
+        res = (self.counter, self.max_counter)
         self.counter = 0
-        if processedCount > self.max_counter:
-            self.max_counter = processedCount
-        return (processedCount, self.max_counter)
+        return res
 
     def stop(self):
-        print '[*] Stopping consumer'
-        self.mqChannel.stop_consuming()
-        print 'stopped consuming'
-        self.mqChannel.close()
-        print 'closed channel'
+        self.pQueue.put('break')
 
 class Consumer(Thread):
-    def __init__(self, mqQueue, pQueue = None, funct = None):
+    def __init__(self, ch, qName, pQueue=None, callback=None):
         super(Consumer, self).__init__()
         self.name = 'mqInChannelThread'
-        self.mqQueue = mqQueue
+        self.ch = ch
+        self.qName = qName
         self.daemon = True
         self.active = True
-        self.in_process_queue = pQueue
-        self.funct = funct
+        self.pQueue = pQueue
+        self.callback = callback
 
     def run(self):
-        counter = 0
-        while self.active:
-            time.sleep(0.01)
-            if len(self.mqQueue) > 0:
-                message = self.mqQueue.get(acknowledge=False)
-                if message: # sometimes message is None... to check rabbitpy issues
-                    counter += 1
-                    if self.in_process_queue:
-                        try:
-                            self.in_process_queue.put(message.body)
-                        except IOError:
-                            self.active = False
-                            break
-                        if counter == 1000:
-                            print datetime.now(), self.in_process_queue.qsize(), 'mqsize', len(self.mqQueue)
-                            counter = 0
-                    else:
-                        self.funct(message.body)
+        self.queue = rabbitpy.Queue(self.ch, self.qName)
+        for message in self.queue:
+            try:
+                if self.pQueue:
+                    self.pQueue.put(message.body)
+                elif self.callback:
+                    self.callback(message.body)
+                message.ack()
+            except Exception as e:
+                vLogger.error(e)
 
     def getMQSize(self):
-        return len(self.mqQueue)
+        return len(self.queue)
 
     def stop(self):
-        print '[*] Stopping consumer'
-        self.mqChannel.stop_consuming()
-        print 'stopped consuming'
-        self.mqChannel.close()
-        print 'closed channel'
+        self.queue.stop_consuming()
 
 class Worker(Process):
-    def __init__(self, InPQueue, OutPQueue, logger, ssh_config, checks={}):
+    def __init__(self, inPQueue, outPQueue,
+                 tCount, ssh_config, checks):
         super(Worker, self).__init__()
-        self.in_process_queue = InPQueue
-        self.out_process_queue = OutPQueue
-        self.logger = logger
+        self.in_process_queue = inPQueue
+        self.out_process_queue = outPQueue
+        self.tCount = tCount
         self.checks = checks
-        self.workingMode = True
         self.ssh_config = ssh_config
+        self.ssh_config.expandPaths()
+        self.workingMode = True
+        self.daemon = True
 
     def run(self):
-        counter = 0
-        while self.workingMode:
-            try:
-                jobMessage = self._getMessageFromQueue()
-                reply = self._performJob(jobMessage)
-                self._putMessageToQueue(reply)
-                counter += 1
-                if counter == 100:
-                    print "{0} Another 100 messages were sent by thread {1}".\
-                          format(datetime.now(), self.name)
-                    counter = 0
-            except AssertionError as ae:
-                pass
-            except Exception as e:
-                print "Unhandled Exception:", e
-                pass
-        print 'exit'
-        return
+        with ThreadPoolExecutor(max_workers=self.tCount) as executor:
+            while self.workingMode:
+                try:
+                    jobMessage = self._getMessageFromQueue()
+                    if jobMessage == 'exit':
+                        vLogger.info('Worker {} received exit message'.\
+                                         format(self.name))
+                        self.workingMode = False
+                        break
+                    executor.submit(self.performJob, jobMessage)
+                except ProcessingException:
+                    pass
+                except Exception as e:
+                    vLogger.error(e)
 
-    def _checkPluginAvailability(self, check_script):
+    def performJob(self, jobMessage):
+        job = self._prepareJobMessage(jobMessage)
+        result = self._executeJob(job)
+        jresult = result.tojson()
+        self._putMessageToQueue(jresult)
+
+    def _prepareJobMessage(self, msg):
         try:
-            return self.checks[check_script]
-        except:
-            print 'Plugin {0} not found in configuration'.format(check_script)
-            self.logger.warning('Plugin {0} not found in configuration'.\
-                                format(check_script))
-            executor = None
+            res = tools.Message(msg, fromJSON=True)
+            vLogger.debug('Parsed message {0}, body: {1}'.format(res.message_id,
+                                                                 msg))
+            return res
+        except Exception as e:
+            vLogger.warning("Worker {0} is unable " \
+                            "to process incoming message. Problematic JSON " \
+                            "is {1}".format(self.name, msgBody))
+            raise ProcessingException
 
     def _getMessageFromQueue(self):
         try:
             return self.in_process_queue.get(True)
         except Exception as e:
-            print "Exception during receiving message via process queue", e
-            self.logger.error('Worker {0} was unable to get message from process query'.format(self.name))
-            raise AssertionError
+            vLogger.error("Worker {0} was unable " \
+                          "to get message from process query: " \
+                          "{1}".format(self.name, e))
+            raise ProcessingException
 
     def _putMessageToQueue(self, message):
         try:
             self.out_process_queue.put(message)
         except Exception as e:
-            print "Exception during sending message to out process queue", e
-            self.logger.error('Worker {0} was unable to send message to out process query'.format(self.name))
-            raise AssertionError
+            vLogger.error("Worker {0} was unable " \
+                          "to send message to out process query: ",
+                          "{1}".format(self.name, e))
+            raise ProcessingException
 
-    def _prepareJobMessage(self, data):
-        try:
-            return tools.Message(data, fromJSON = True)
-        except Exception as e:
-            print "Cannot find value in decoded json: {0}".format(e)
-            self.logger.warning("Worker {0} is unable to process incomming message. Problematic JSON is {1}".format(self.name, data))
-            raise AssertionError
 
-    def _performJob(self, jobMessage):
-        job = self._prepareJobMessage(jobMessage)
-        result = self._executeJob(job)
-        try:
-            jresult = result.tojson()
-        except UnicodeDecodeError:
-            result.removeWrongASCIISymbols()
-            jresult = result.tojson()
-        return jresult
+    def _checkPluginAvailability(self, check_script):
+        return self.checks[check_script]
 
     def _executeJob(self, job):
         if job.type == 'check':
@@ -167,95 +162,122 @@ class Worker(Process):
             if job.ssh_wrapper:
                 try:
                     output = tools.executeProcessViaSSH(job, self.ssh_config)
-                except IOError:
-                    print 'Unable to execute SSH command - cannot reach some of ssh configuration files({0} and {1})!'.format(self.ssh_config.rsa_key_file, self.ssh_config.host_key_file)
-                    self.logger.warning('Unable to execute SSH command - cannot reach some of ssh configuration files({0} and {1})!'.format(self.ssh_config.rsa_key_file, self.ssh_config.host_key_file))
+                except IOError as e:
+                    vLogger.warning("Unable to execute SSH command " \
+                                    "- cannot reach some of configuration " \
+                                    "files({0} and {1})!".\
+                                    format(self.ssh_config.rsa_key_file,
+                                           self.ssh_config.host_key_file))
+                    vLogger.warning(e)
             else:
                 output = tools.executeProcess(job)
-            self.logger.info('Worker {0} successfully executed {1} for host {2} (ip:{3})'.format(self.name, output.script, output.hostname, output.ipaddress))
+            vLogger.debug("Worker {0} successfully executed " \
+                         "{1} for host {2} (ip:{3})".format(self.name,
+                                                            output.script,
+                                                            output.hostname,
+                                                            output.ipaddress))
         elif job.type == 'task':
             if job.action == 'discovery':
                 output = tools.executeDiscovery(job)
-                self.logger.info('Worker {0} successfully executed {1} for ip:{2})'.format(self.name, output.action, output.ipaddress))
+                vLogger.debug("Worker {0} successfully executed " \
+                             "{1} for ip:{2})".format(self.name,
+                                                      output.action,
+                                                      output.ipaddress))
         return output
 
-class Factory(object):
-    def __init__(self): #mq_config, mq_handler, logger, checks = {}):
-        self.in_process_queue_f = Manager().Queue()
-        self.out_process_queue_f = Manager().Queue()
-        self.senders = list()
-        self.consumers = list()
+    def stop(self):
+        self.in_process_queue.put('exit')
 
-    def prepareWorkers(self, procCount, logger, checks, ssh_config):
-        self.workers =  [ Worker(InPQueue=self.in_process_queue_f,
-                                 OutPQueue=self.out_process_queue_f,
-                                 logger=logger,
-                                 checks=checks,
-                                 ssh_config=ssh_config)\
-                                 for _ in range(procCount) ]
+class Factory(object):
+    def __init__(self, mqConn, config):
+        self.mqConn = mqConn
+        self.procCount = config.process_count
+        self.inQ = config.queue.inqueue
+        self.outQ = config.queue.outqueue
+        self.config = config
+        self.in_queues = self.prepareQueues()
+        self.out_queues = self.prepareQueues()
+        self.consumers = self.prepareConsumers()
+        self.publishers = self.preparePublishers()
+        self.workers = self.prepareWorkers()
+        self.processedCount = 0
+        self.processedCountMax = 0
+        self.stats = Stats()
+        vLogger.info('Factory initialized successfully')
+
+    def prepareQueues(self):
+        return [ Manager().Queue() for _ in range(self.procCount) ]
+
+    def inCallback(self, **kwargs):
+        q.put(body)
+
+    def outCallback(self, **kwargs):
+        return q.get(True)
+
+    def prepareConsumers(self):
+        return [ Consumer(self.mqConn.channel(),
+                          self.inQ, Manager().Queue()) \
+                          for _ in range(self.procCount) ]
+
+    def preparePublishers(self):
+        return [ Publisher(self.mqConn.channel(),
+                           self.outQ, Manager().Queue()) \
+                           for _ in range(self.procCount) ]
+
+    def prepareWorkers(self):
+        return [ Worker(inPQueue=self.consumers[numb].pQueue,
+                        outPQueue=self.publishers[numb].pQueue,
+                        tCount=self.config.threads_per_process,
+                        checks=tools.pluginDict(self.config.plugin_paths),
+                        ssh_config=self.config.ssh) \
+                        for numb in range(self.procCount) ]
 
     def startWork(self):
-        for w in self.workers: # start each worker for executing plugins
-            w.daemon = True
-            w.start()
-            print "{} started".format(w.name)
-        for c in self.consumers: # start each worker for executing plugins
-            c.daemon = True
-            c.start()
-        for s in self.senders: # start each worker for executing plugins
-            s.daemon = True
-            s.start()
+        for numb in range(self.procCount):
+            self.publishers[numb].start()
+            self.workers[numb].start()
+            self.consumers[numb].start()
+        vLogger.info('Factory was started')
 
     def stopWork(self):
-        for w in self.workers: # start each worker for executing plugins
-            w.workingMode = False
-        for c in self.consumers: # start each worker for executing plugins
-            #c.in_process_queue.put("break")
-            c.active = False
-        for s in self.senders: # start each worker for executing plugins
-            #s.out_process_queue.put("break")
-            s.active = False
+        for w in self.workers:
+            w.stop()
+        for c in self.consumers:
+            c.stop()
+        for p in self.publishers:
+            p.stop()
 
     def goHome(self):
         self.stopWork()
-        for c in self.consumers: # start each worker for executing plugins
-            if c.isAlive():
-                #c.mqQueue.close()
-                c.join()
-        for s in self.senders: # start each worker for executing plugins
-            if s.isAlive():
-                s.mqChannel.close()
-                s.join()
         for w in self.workers:
             w.join(1)
-            print w.name, " joined"
+            vLogger.info("{} joined".format(w.name))
 
-    def gatherStats(self, interval):
-        stats = Stats()
-        stats.interval = interval
-        stats.worker_count = len(self.workers)
-        stats.worker_alive = self._getAliveCount(self.workers)
-        stats.consumers_count = len(self.consumers)
-        stats.consumers_alive = self._getAliveCount(self.consumers)
-        stats.senders_count = len(self.senders)
-        stats.senders_alive = self._getAliveCount(self.senders)
-        stats.input_queue_size = self.consumers[0].getMQSize()
-        stats.throughput, stats.max_throughput = self._getProcessedTasksAmount()
-        stats.last_update_time = datetime.now().strftime("%H:%M:%S:%d:%m:%Y")
-        return stats
+    def gatherStats(self):
+        self.stats.worker_count = len(self.workers)
+        self.stats.worker_alive = self._getAliveCount(self.workers)
+        self.stats.consumers_count = len(self.consumers)
+        self.stats.consumers_alive = self._getAliveCount(self.consumers)
+        self.stats.senders_count = len(self.publishers)
+        self.stats.senders_alive = self._getAliveCount(self.publishers)
+        self.stats.input_queue_size = self.consumers[0].getMQSize()
+        self.stats.throughput, self.stats.max_throughput = self.\
+                                                    _getProcessedTasksAmount()
+        self.stats.last_update_time = tools.dateToStr()
+        return self.stats
 
     def _getAliveCount(self, elemList):
-        counter = 0
-        for worker in elemList:
-            if worker.is_alive():
-                counter += 1
-        return counter
+        alive_count = 0
+        for _ in elemList:
+            if _.is_alive():
+                alive_count += 1
+        return alive_count
 
     def _getProcessedTasksAmount(self):
-        count = 0
-        max_count = 0
-        for s in self.senders:
-            c, m  = s.getProcessedTasksCounter()
-            count += c
-            max_count += m
-        return count, max_count
+        for p in self.publishers:
+            c, m  = p.getProcessedTasksCounter()
+            self.processedCount += c
+            self.processedCountMax += m
+        res = (self.processedCount, self.processedCountMax)
+        self.processedCount, self.processedCountMax = (0,0)
+        return res

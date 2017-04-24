@@ -3,9 +3,9 @@ import paramiko
 
 class SSHConnection(object):
 
-    def __init__(self, ipaddress, user, ssh_config,  port = 22):
+    def __init__(self, ipaddress, user, ssh_config, port=22):
         self.host_key_file = ssh_config.host_key_file
-        self.rsa_key_file = ssh_config.host_key_file
+        self.rsa_key_file = ssh_config.rsa_key_file
         self.ssh_connection_timeout = ssh_config.ssh_connection_timeout # in seconds
         self.IP = ipaddress
         self.user = user

@@ -1,5 +1,6 @@
 {
-  "process_count" : 32,
+  "process_count" : 2,
+  "threads_per_process" : 8,
   "queue" : {
     "host" : "localhost",
     "port" : 5672,
@@ -14,13 +15,13 @@
   },
   "log": {
     "log_file" : "logs/violet.log",
-    "log_level" : "INFO"
+    "log_level" : "DEBUG"
   },
-  "plugin_paths" : "/usr/lib/nagios/plugins/;/root",
+  "plugin_paths" : "./custom/plugins;/usr/lib/nagios/plugins/;/root;/usr/lib/nagios/plugins-rabbitmq/",
   "ssh": {
     "host_key_file" : "~/.ssh/known_hosts",
     "rsa_key_file" : "~/.ssh/id_rsa",
     "ssh_connection_timeout" : 4
   },
-  "heartbeat_interval" : 5
+  "heartbeat_interval" : 20
 }

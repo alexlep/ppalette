@@ -14,5 +14,6 @@
     "log_level" : "INFO"
   },
   "consumer_amount" : 4,
-  "collect_history" : false
+  "collect_history" : false,
+  "stats_heartbeat" : 3
 }

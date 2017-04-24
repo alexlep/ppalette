@@ -1,78 +1,48 @@
 # -*- coding: utf-8 -*-
-import sys
-import os
 import time
-import signal
-from pvars import violetConfigFile
+
+from configs import vConfig, vLogger
 from mq import MQ
-from processing import Factory, Sender, Consumer
-from tools import draftClass, parseConfig, initLogging, getUniqueID
+from processing import Factory
+from rabbitpy import Message
 
 class Violet(object):
-    def __init__(self, configFile):
-        self.config = parseConfig(configFile)
-        self.log = initLogging(self.config.log) # init logging
-        self.MQ = MQ(self.config.queue, violet=True)
-        self.identifier = self.MQ.getConnectionId()
-        self.senderStatsChannel = self.MQ.initMonitoringOutChannel()
-        self.checks = self.preparePluginDict()
-        self.factory = Factory()
-        self.factory.prepareWorkers(procCount=self.config.process_count,
-                                    logger=self.log,
-                                    checks=self.checks,
-                                    ssh_config=self.config.ssh)
-        self._prepareConsumers() # separate consumer thread
-        self._prepareSenders() # separate sender thread
+    def __init__(self, testing=False):
+        self.active = True
+        if not testing:
+            self.MQ = MQ(vConfig.queue, violet=True)
+            self.factory = Factory(self.MQ.PyConnection, vConfig)
+            self.factory.stats.identifier = self.MQ.getConnectionId()
 
     def __call__(self, signum, frame):
-        print 'sigint captured'
-        self.destroy()
-
-    def preparePluginDict(self):
-        tPlugDict = dict()
-        for path in self.config.plugin_paths.split(';'):
-            if path:
-                try:
-                    scripts = os.listdir(path)
-                except OSError as (errno, strerror):
-                    self.log.warning("Unable to access directory {0} to get plugins. Reason: {1}.".format(path, strerror))
-                    continue
-                if not len(scripts):
-                    self.log.warning("No plugins found in directory {0} directory is empty. Skipping it.".format(path))
-                else:
-                    for script in scripts:
-                        tPlugDict[script] = "{0}/{1}".format(path, script)
-        return tPlugDict
+        vLogger.info('Catched SIGINT. Shutting down violet gracefully.')
+        self.destruct()
 
     def startProcesses(self):
-        print 'starting'
+        vLogger.info('Starting violet factory')
         self.factory.startWork()
-        while True:
-            time.sleep(self.config.heartbeat_interval)
-            self._sendStats(self.config.heartbeat_interval)
+        self._startMonitoring()
 
-    def destroy(self):
+
+    def destruct(self, signum, frame):
         self.factory.goHome()
-        print 'workers_went_home'
-        sys.exit(0)
+        vLogger.info('Factory was closed.')
+        self.active = False
+        self.MQ.PyConnection.close()
+        vLogger.info('Violet is terminated.')
 
-    def _sendStats(self, interval=0):
-        statistics = self.factory.gatherStats(interval)
-        statistics.identifier = self.identifier
-        print statistics.tojson()
-        self.MQ.sendStatM(self.senderStatsChannel, statistics.tojson())
+    def _prepareStats(self, interval):
+        stats = self.factory.gatherStats()
+        stats.interval = interval
+        return stats.tojson()
 
-    def _prepareConsumers(self):
-        for i in range(self.config.queue.consumer_amount):
-            self.factory.\
-                consumers.\
-                append(Consumer(mqQueue=self.MQ.initInRabbitPyQueue(),
-                                pQueue=self.factory.in_process_queue_f))
-
-    def _prepareSenders(self):
-        for i in range(self.config.queue.sender_amount):
-            self.factory.\
-                senders.\
-                append(Sender(mqChannel=self.MQ.initOutRabbitPyChannel(),
-                              mqQueue=self.config.queue.outqueue,
-                              pQueue=self.factory.out_process_queue_f))
+    def _startMonitoring(self):
+        vLogger.info('Starting to collect and launch statistics')
+        with self.MQ.initMonitoringOutChannel() as ch:
+            while self.active:
+                time.sleep(vConfig.heartbeat_interval)
+                stMsg = Message(ch,
+                                self._prepareStats(vConfig.heartbeat_interval))
+                stMsg.publish(str(), vConfig.queue.monitoring_outqueue)
+                vLogger.info("Statistics were sent to RMQ. Waiting next "\
+                             "{} seconds...".format(vConfig.heartbeat_interval))

@@ -4,9 +4,8 @@ def prepareRed():
     from flask import Flask
     from redapi import initRedApiBP
     from pscheduler import Scheduler
-    from pvars import redConfigFile
 
-    RedScheduler = Scheduler(redConfigFile)
+    RedScheduler = Scheduler()
     RedScheduler.start()
 
     RedApi = Flask (__name__)
@@ -39,10 +38,9 @@ def startRedWerkzeug():
 def startViolet():
     import signal
     from violet import Violet
-    from pvars import violetConfigFile
 
-    VioletApp = Violet(violetConfigFile)
-    signal.signal(signal.SIGINT, VioletApp)
+    VioletApp = Violet()
+    signal.signal(signal.SIGINT, VioletApp.destruct)
     VioletApp.startProcesses()
 
 def startGrey():

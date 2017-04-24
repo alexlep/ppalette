@@ -156,14 +156,14 @@ class Status(RedBase):
         self.last_status = msg.output
         self.last_exitcode = msg.exitcode
         self.scheduled_check_time = msg.scheduled_time
-        self.last_check_run = msg.time
+        self.last_check_run = msg.exec_time
         self.interval = msg.interval
 
     def update(self, msg):
         self.last_status = msg.output
         self.last_exitcode = msg.exitcode
         self.scheduled_check_time = msg.scheduled_time
-        self.last_check_run = msg.time
+        self.last_check_run = msg.exec_time
         self.interval = msg.interval
 
     def __unicode__(self):
@@ -192,7 +192,7 @@ class History(Base):
     def __init__(self, msg):
         self.host_id = msg.host_id
         self.plugin_id = msg.plugin_id
-        self.check_run_time = msg.time
+        self.check_run_time = msg.exec_time
         self.check_status = msg.output
         self.check_exitcode = msg.exitcode
         self.interval = msg.interval
