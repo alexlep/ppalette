@@ -97,7 +97,7 @@ __rabbitpy__ - as RabbitMQ connection layer.
 __rrdtool__ - to store inner service statistics(version >=1.6, thread-safe),
 and __python-rrdtool__, binding to rrdtool, to manage rrd files.
 
-__requests__ - is used for testing, and will be used for commandline utility.
+__requests__ - used for commandline utility.
 
 __tornado__ - as a threaded web-server for RESTful API. It's _not_ instaled
 by default.
@@ -116,6 +116,24 @@ _to be continued_
 
 TOBEDONE
 
-## License
+## TOBEDONE
 
-LGPL
+* discovery schedule
+
+* alarm notifications
+
+* manual check launch, out of schedule
+
+* draft class for custom plugins
+
+* rethink monitoring module - influxdb or alternatives
+
+* correct history collection - influxdb or alternatives
+
+* history api
+
+* history cleanups ()
+
+* CI for docker with ansible, separate nodes for services
+
+* web-interface with user's management
