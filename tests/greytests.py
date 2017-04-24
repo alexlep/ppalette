@@ -113,7 +113,7 @@ class apiTestClass(unittest.TestCase):
         # imitating successful discovery, with callback method execution
         discoveryResult = {
             "subnet_id": None, "type": "task", "hostname": "reddit.com",
-            "suite_id": None, "time": "13:10:23:20:03:2017",
+            "suite_id": None, "exec_time": "13:10:23:20:03:2017",
             "action": "discovery",
             "output": "whatever",
             "ipaddress": "151.101.65.140", "exitcode": 0,
@@ -143,7 +143,7 @@ class apiTestClass(unittest.TestCase):
         # discovery with incorrect exitcode, skip adding host
         discoveryResult = {
             "subnet_id": None, "type": "task", "hostname": "protonmail.com",
-            "suite_id": None, "time": "13:10:28:20:03:2017",
+            "suite_id": None, "exec_time": "13:10:28:20:03:2017",
             "action": "discovery",
             "output": "whatever",
             "ipaddress": "185.70.40.182", "exitcode": 1,
@@ -173,7 +173,7 @@ class apiTestClass(unittest.TestCase):
 
         # update status table
         checkRes = {"ssh_wrapper": False, "interval": 15,
-                    "time": "17:07:07:20:03:2017", "suite_id": None,
+                    "exec_time": "17:07:07:20:03:2017", "suite_id": None,
                     "host_id": hostInfo.get('id'),
                     "ipaddress": "212.58.246.90",
                     "login": "violet", "scheduled_time": "17:07:07:20:03:2017",
@@ -192,8 +192,9 @@ class apiTestClass(unittest.TestCase):
         assert 'test_output_BBC' in hostRes.data
 
         # put update into history
-        self.greyApp.updateHistory(Message(json.dumps(checkRes),
-                                           fromJSON=True))
+        msg = Message(json.dumps(checkRes),fromJSON=True)
+        msg.convertStrToDate()
+        self.greyApp.updateHistory(msg)
 
 
 if __name__ == '__main__':
