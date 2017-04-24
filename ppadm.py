@@ -2,12 +2,12 @@
 
 Usage:
   ppadm.py (get|delete) host --ipaddress=<ip>
-  ppadm.py add host --ipaddress=<ip> [--hostname=<hostname>] [--suite=<suitename>] [--subnet=<subnetname>]
-  ppadm.py edit host --ipaddress=<ip> [--hostname=<hostname>] [--suite=<suitename>] [--subnet=<subnetname>] [--maintenance=(on|off)]
+  ppadm.py add host --ipaddress=<ip> [--hostname=<hostname>] [--suite=<suitename>] [--subnet=<subnetname>] [--history=(on|off)] [--login=<login>]
+  ppadm.py edit host --ipaddress=<ip> [--hostname=<hostname>] [--suite=<suitename>] [--subnet=<subnetname>] [--history=(on|off)] [--maintenance=(on|off)] [--login=<login>]
   ppadm.py (get|delete) subnet --name=<name>
   ppadm.py add subnet --name=<name> --subnet=<subnet> --netmask=<netmask> [--suite=<suite>]
   ppadm.py edit subnet --name=<name> [--suite=<suitename>] [--subnet=<subnetname>] [--netmask=<netmask>]
-  ppadm.py list (hosts|subnets|plugins|suites)
+  ppadm.py list (hosts|subnets|plugins|suites) [--page=<page>]
   ppadm.py ops discovery --subnet=<subnet>
   ppadm.py show (status|scheduler|workers)
   ppadm.py show monitoring --type=<type> [--period=<period>]
@@ -31,7 +31,7 @@ from core.tools import parseConfig
 import logging
 from core.pvars import redConfigFile
 
-LOGLEVEL = "DEBUG"
+LOGLEVEL = "INFO"
 logging.basicConfig(stream=sys.stderr, level=getattr(logging, LOGLEVEL))
 
 config = parseConfig(redConfigFile)
@@ -83,8 +83,12 @@ def getOptions(arguments):
     return opargs
 
 def runApiCall(method, obj, params):
+    if params.get('page'):
+        fullUrl = '{0}/{1}/{2}'.format(redApiUrl, obj, params.get('page'))
+    else:
+        fullUrl = '{0}/{1}'.format(redApiUrl, obj)
     try:
-        r = getattr(requests, method)('{0}/{1}'.format(redApiUrl, obj),
+        r = getattr(requests, method)(fullUrl,
                                       data=params)
     except requests.exceptions.ConnectionError as ce:
         print "Unable to connect to {}. Is red running?".format(redApiUrl)
