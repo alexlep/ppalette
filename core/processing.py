@@ -7,7 +7,7 @@ from multiprocessing import Process, Manager
 from concurrent.futures import ThreadPoolExecutor
 
 import tools
-from monitoring import Stats
+from monitoring.base import Stats
 from configs import vLogger
 
 class ProcessingException(Exception):
@@ -258,8 +258,8 @@ class Factory(object):
         self.stats.worker_alive = self._getAliveCount(self.workers)
         self.stats.consumers_count = len(self.consumers)
         self.stats.consumers_alive = self._getAliveCount(self.consumers)
-        self.stats.senders_count = len(self.publishers)
-        self.stats.senders_alive = self._getAliveCount(self.publishers)
+        self.stats.publishers_count = len(self.publishers)
+        self.stats.publishers_alive = self._getAliveCount(self.publishers)
         self.stats.input_queue_size = self.consumers[0].getMQSize()
         self.stats.throughput, self.stats.max_throughput = self.\
                                                     _getProcessedTasksAmount()

@@ -1,12 +1,15 @@
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.exc import IntegrityError
 
-from pvars import statRRDFile, rrdDataDir
 from tools import validateIP, validateNetwork, resolveIP, validateInt,\
-                  validatePage
+                  validatePage, getPluginModule
 from models import Host, Subnet, Plugin, History, Suite, Status
 from core.database import db_session
-from monitoring import RRD
+from configs import cConfig, rLogger
+
+monit = getPluginModule(cConfig.mon_engine,
+                        cConfig.mon_plugin_path,
+                        rLogger)
 
 STATUS_OK = 0
 STATUS_WARNING = 1
@@ -380,9 +383,9 @@ class apiMonitoringHandler(object):
         return res, exitcode
 
     def getCommonStats(self):
-        res = RRD(statRRDFile).getChartData(hours=1, grades=60)\
+        res = monit.Monitor().getChartData(hours=1, grades=60)\
             if self.period == 'all'\
-            else RRD(statRRDFile).getLatestUpdate()
+            else monit.Monitor().getLatestUpdate()
         exitcode = 200
         return res, exitcode
 
@@ -401,8 +404,7 @@ class apiMonitoringHandler(object):
         return res, exitcode
 
     def fetchSingleVioletStats(self, violet_id, period):
-        rrdinst = RRD("{0}/{1}.rrd".format(rrdDataDir, violet_id),
-                      statType=VIOLET)
-        return rrdinst.getChartData(hours=1, grades=60)\
+        monitor = monit.Monitor(violet_id)
+        return monitor.getChartData(hours=1, grades=60)\
               if period == 'all'\
-              else rrdinst.getLatestUpdate()
+              else monitor.getLatestUpdate()

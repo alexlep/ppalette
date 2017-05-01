@@ -34,7 +34,7 @@ class Violet(object):
     def _prepareStats(self, interval):
         stats = self.factory.gatherStats()
         stats.interval = interval
-        return stats.tojson()
+        return stats.tojsonAll()
 
     def _startMonitoring(self):
         vLogger.info('Starting to collect and launch statistics')

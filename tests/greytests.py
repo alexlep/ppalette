@@ -9,9 +9,15 @@ os.sys.path.insert(0, parentdir)
 os.chdir(parentdir)
 
 import core.pvars as pv
-from core.tools import checkDev, Message
+from core.tools import checkDev, Message, getPluginModule
 from core.grey import Grey, db_session
 from core.daemons import prepareRed
+
+from core.configs import cConfig, gLogger
+
+monit = getPluginModule(cConfig.mon_engine,
+                        cConfig.mon_plugin_path,
+                        gLogger)
 
 if not checkDev():
     print 'Development is disabled - refusing to execute destructive tests!'
@@ -43,9 +49,9 @@ class apiTestClass(unittest.TestCase):
     def removeRRDFile(self, violetID=None):
         try:
             if violetID:
-                os.remove('{}/{}.rrd'.format(pv.rrdDataDir, violetID))
+                os.remove('{}/{}.rrd'.format(monit.rrdDataDir, violetID))
             else:
-                os.remove(pv.statRRDFile)
+                os.remove(monit.statRRDFile)
         except OSError:
             pass
 
@@ -55,12 +61,12 @@ class apiTestClass(unittest.TestCase):
         self.removeRRDFile(violetID)
         violet_stats = {
             "last_update_time": "22:18:44:19:03:2017",
-            "senders_alive": 16,
+            "publishers_alive": 16,
             "identifier": violetID,
             "max_throughput": 49, "input_queue_size": 0,
             "worker_count": 32, "interval": 5, "worker_alive": 32,
             "throughput": 40, "consumers_count": 16,
-            "senders_count": 16, "consumers_alive": 16
+            "publishers_count": 16, "consumers_alive": 16
             }
         self.assertRaises(Exception,
                           self.greyApp.\
@@ -78,12 +84,12 @@ class apiTestClass(unittest.TestCase):
         self.removeRRDFile(violetID)
         violet_stats = {
             "last_update_time": "22:18:44:19:03:2017",
-            "senders_alive": 300,
+            "publishers_alive": 300,
             "identifier": violetID,
             "max_throughput": 400, "input_queue_size": 0,
             "worker_count": 200, "interval": 800, "worker_alive": 800,
             "throughput": 80, "consumers_count": 130,
-            "senders_count": 300, "consumers_alive": 400
+            "publishers_count": 300, "consumers_alive": 400
             }
         self.assertRaises(Exception,
                           self.greyApp.\

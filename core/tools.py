@@ -9,7 +9,7 @@ import datetime as dt
 import time
 from sshexecutor import SSHConnection
 from ipaddress import ip_address, ip_network, IPv4Network
-from pvars import commonConfigFile, redConfigFile, defTimeFormat, workingDir
+from pvars import commonConfigFile, defTimeFormat, workingDir
 
 class Message(object):
     type = None
@@ -287,3 +287,14 @@ def pluginDict(pluginPaths, logger=None):
                 for script in scripts:
                     tPlugDict[script] = "{0}/{1}".format(path, script)
     return tPlugDict
+
+def getPluginModule(plugin, plugPath, logger):
+    import imp
+    sys.path.append(plugPath)
+    try:
+        mod = imp.find_module(plugin)
+    except ImportError:
+        logger.error("Unable to find plugin {0} in {1}".format(plugin,
+                                                                plugPath))
+        sys.exit(1)
+    return imp.load_module(plugin, *mod)

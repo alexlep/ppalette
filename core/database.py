@@ -14,21 +14,22 @@ engine = create_engine(url,
 '''
 from sqlalchemy.pool import QueuePool
 
-mysql_host = '127.0.0.1'
-mysql_port = 3306
-dbuser = 'test'
-dbpassword = 'test'
+MYSQL_HOST = '127.0.0.1'
+MYSQL_PORT = 3306
+DBUSER = 'test'
+DBPASSWORD = 'test'
 
-url = 'mysql://{0}:{1}@{2}/ppalette?use_unicode=1&charset=utf8'.\
-      format(dbuser, dbpassword, mysql_host)
-engine = create_engine(url, poolclass=QueuePool,
-                       connect_args=dict(host=mysql_host, port=mysql_port),
+URL = 'mysql://{0}:{1}@{2}/ppalette?use_unicode=1&charset=utf8'.\
+      format(DBUSER, DBPASSWORD, MYSQL_HOST)
+
+engine = create_engine(URL, poolclass=QueuePool,
+                       connect_args=dict(host=MYSQL_HOST, port=MYSQL_PORT),
                        pool_recycle=3600, pool_size=20, max_overflow=0,
                        isolation_level="READ UNCOMMITTED")
 
 db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=True,
-                                         bind=engine))
+                                     autoflush=True,
+                                     bind=engine))
 Base = declarative_base()
 Base.query = db_session.query_property()
 

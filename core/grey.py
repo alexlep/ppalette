@@ -2,19 +2,23 @@
 import time
 from datetime import datetime
 from sqlalchemy import update, insert, and_
-from database import init_db, db_session
+from database import db_session
 from models import Status, History, Subnet, Host, Suite, Plugin
 from mq import MQ
-from tools import getUniqueID, Message
+from tools import getUniqueID, Message, getPluginModule
 from processing import Consumer
-from monitoring import RRD, Stats, CommonStats
-from pvars import statRRDFile, rrdDataDir
-from configs import gConfig, gLogger
+from configs import gConfig, gLogger, cConfig
+from monitoring.base import Stats, CommonStats
+
+monit = getPluginModule(cConfig.mon_engine,
+                        cConfig.mon_plugin_path,
+                        gLogger)
 
 class Grey(object):
     def __init__(self, configFile, testing=False):
         self.status = CommonStats(db_session)
         self.active = True
+        self.commonMonit = monit.Monitor()
         if not testing:
             self.MQ = MQ(gConfig.queue)
             self.consumers = [ Consumer(self.MQ.PyConnection.channel(),
@@ -56,8 +60,8 @@ class Grey(object):
         executed on every heartbeat message received from violet(s)
         """
         stats = Stats(data, fromJSON=True)
-        myrrd = RRD("{0}/{1}.rrd".format(rrdDataDir, stats.identifier))
-        myrrd.insertValues(stats)
+        self.violetMonit = monit.Monitor(stats.identifier)
+        self.violetMonit.insertValues(stats)
         gLogger.info("Updated {} stats".format(stats.identifier))
 
     def updateCommonStats(self):
@@ -66,7 +70,7 @@ class Grey(object):
         statistics, mostly from DB
         """
         self.status.update()
-        RRD(statRRDFile).insertValues(self.status)
+        self.commonMonit.insertValues(self.status)
         gLogger.info("Updated common stats. Overall checks {0}"\
                      " , OK state {1}".format(self.status.checks_all,
                                               self.status.checks_ok))
@@ -85,6 +89,7 @@ class Grey(object):
             gLogger.debug('Message {} was inserted into status table.'.\
                           format(msg.message_id))
         except Exception as e:
+            db_session.rollback()
             gLogger.warning('Failed to insert {0} to status table. Reason:{1}'.\
                             format(msg.message_id, e))
             pass

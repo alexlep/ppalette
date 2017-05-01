@@ -7,9 +7,6 @@ redConfigFile = configDir + '/red_config.json'
 greyConfigFile = configDir + '/grey_config.json'
 violetConfigFile = configDir + '/violet_config.json'
 commonConfigFile = configDir + '/common.json'
-#
-rrdDataDir = workingDir + '/rrd_data'
-statRRDFile = rrdDataDir + '/common_statistics.rrd'
 
 #
 prefix = '/redapi'

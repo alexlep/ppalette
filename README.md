@@ -119,21 +119,13 @@ TOBEDONE
 ## TOBEDONE
 
 * discovery schedule
-
 * alarm notifications
-
 * manual check launch, out of schedule
-
 * draft class for custom plugins
-
 * rethink monitoring module - influxdb or alternatives
-
 * correct history collection - influxdb or alternatives
-
 * history api
-
 * history cleanups ()
-
 * CI for docker with ansible, separate nodes for services
-
 * web-interface with user's management
+* TLS everywhere

@@ -1,5 +1,6 @@
 import sys
-from pvars import violetConfigFile, redConfigFile, greyConfigFile
+from pvars import violetConfigFile, redConfigFile, greyConfigFile,\
+                  commonConfigFile
 from tools import parseConfig, initLogging
 
 vConfig = parseConfig(violetConfigFile)
@@ -10,3 +11,5 @@ rLogger = initLogging(rConfig.log, 'red')
 
 gConfig = parseConfig(greyConfigFile)
 gLogger = initLogging(gConfig.log, 'grey')
+
+cConfig = parseConfig(commonConfigFile)
