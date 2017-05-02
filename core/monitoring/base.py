@@ -14,12 +14,11 @@ class CommonStats(object):
                     'checks_active', 'hosts_all',
                     'hosts_active_up', 'checks_incorrect'
                     ]
-    #unmonitored_items = ['interval', 'data_sources']
 
     def __init__(self, db_session):
         self.dbs = db_session
         for ds in self.data_sources:
-            self.__dict__[ds] = None
+            setattr(self, ds, None)
 
     def update(self):
         self.hosts_active = self.dbs.query(Host.id).\
@@ -64,7 +63,7 @@ class CommonStats(object):
     def getStatDict(self):
         res = dict()
         for elem in self.data_sources:
-            res[elem] = self.__dict__.get(elem)
+            res[elem] = getattr(self, elem)
         return res
 
     def tojson(self):
@@ -102,7 +101,7 @@ class Stats(object):
     def getStatDict(self):
         res = dict()
         for elem in self.data_sources:
-            res[elem] = self.__dict__.get(elem)
+            res[elem] = getattr(self, elem)
         return res
 
     def tojson(self):

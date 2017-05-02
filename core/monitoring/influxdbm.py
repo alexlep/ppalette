@@ -60,14 +60,13 @@ class Monitor(BaseMonitoring):
     def getChartData(self, hours=6, grades=10):
         client = prepareCli()
         if self.violetID:
-            req = "SELECT {0} FROM \"{1}\" WHERE time > now() - {2}h".\
-                  format(','.join(self.paramsToFetch),
-                         VIOLET_SN,
-                         hours)
+            req = "SELECT {0} FROM \"{1}\" WHERE time > now() - {2}h "\
+                  "AND violetID='{3}'".format(','.join(self.paramsToFetch),
+                                               VIOLET_SN,
+                                               hours,
+                                               self.violetID)
             rs = client.query(req)
-            res = dict(res=list(rs.get_points(tags={
-                                            'violetID': self.violetID
-                                             })))
+            res = dict(res=list(rs.get_points()))
         else:
             req = "SELECT {0} FROM \"{1}\" WHERE time > now() - {2}h".\
                   format(','.join(self.paramsToFetch),
@@ -80,21 +79,16 @@ class Monitor(BaseMonitoring):
     def getLatestUpdate(self):
         client = prepareCli()
         if self.violetID:
-            req = "SELECT {0} FROM \"{1}\" LIMIT 1".\
-                  format(','.join(self.paramsToFetch), VIOLET_SN)
+            req = "SELECT {0} FROM \"{1}\" WHERE violetID='{2}' LIMIT 1;".\
+                  format(','.join(self.paramsToFetch),
+                         VIOLET_SN,
+                         self.violetID)
             rs = client.query(req)
-            res = dict(res=list(rs.get_points(tags={
-                                            'violetID': self.violetID
-                                             })))
+            res = dict(res=list(rs.get_points()))
         else:
-            req = "SELECT {0} FROM \"{1}\" LIMIT 1".\
+            req = "SELECT {0} FROM \"{1}\" LIMIT 1;".\
                   format(','.join(self.paramsToFetch),
                          COMMON_SN)
             rs = client.query(req)
             res = dict(res=list(rs.get_points()))
         return res
-"""
-    def _getPoints(tags=None):
-        if not tags:
-            res =
-"""

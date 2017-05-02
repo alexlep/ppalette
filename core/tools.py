@@ -32,6 +32,7 @@ class Message(object):
     time = None
     executor = None
     message_id = None
+    history_keys = ['exitcode','output', 'script']
     def __init__ (self, data=False, fromJSON=False, plugin=False,
                   suite=False, host=False, subnet=False):
         if fromJSON:
@@ -86,6 +87,12 @@ class Message(object):
 
     def removeWrongASCIISymbols(self):
         self.output = self.output.decode('utf-8','ignore').encode("utf-8")
+
+    def getHistoryDict(self):
+        res = dict()
+        for key in self.history_keys:
+            res[key] = self.__dict__.get(key)
+        return res
 
 class draftClass:
     def __init__(self, dictdata = dict()):
