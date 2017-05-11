@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import tools
-from sqlalchemy.dialects.mysql import TEXT
 from sqlalchemy import Column, Table, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql.functions import now
-from sqlalchemy.orm import collections
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from database import Base
@@ -29,6 +27,30 @@ class RedBase(Base):
             else:
                 res[param] = value
         return res
+
+    def isSynced(self):
+        return True if self.sync_state == 0 else False
+
+    def isNew(self):
+        return True if self.sync_state == 1 else False
+
+    def isForDelete(self):
+        return True if self.sync_state == 2 else False
+
+    def isForUpdate(self):
+        return True if self.sync_state == 3 else False
+
+    def markSynced(self):
+        self.sync_state = 0
+
+    def markAsNew(self):
+        self.sync_state = 1
+
+    def markForDelete(self):
+        self.sync_state = 2
+
+    def markForUpdate(self):
+        self.sync_state = 3
 
 class Suite(RedBase):
     __tablename__ = 'suite'
@@ -63,9 +85,9 @@ class Plugin(RedBase):
     __tablename__ = 'plugin'
     paramsShort = ['id', 'script','customname', 'interval']
     paramsFull = paramsShort + ['suites', 'description', 'ssh_wrapper',
-                                'params']
+                                'params', 'sync_state']
     id = Column(Integer, primary_key=True)
-    pluginUUID = Column(String(36), unique=True, default=tools.getUniqueID)
+    UUID = Column(String(36), unique=True, default=tools.getUniqueID)
     script = Column(String(100))
     customname = Column(String(100), unique=True)
     description = Column(String(100))
@@ -73,11 +95,13 @@ class Plugin(RedBase):
     interval = Column(Integer, default=30)
     date_created = Column(DateTime, default=now())
     date_modified = Column(DateTime, default=now(), onupdate=now())
-    ssh_wrapper = Column(Boolean(), default = False)
+    ssh_wrapper = Column(Boolean(), default=False)
     suites = relationship('Suite',
+                          viewonly=True,
                           secondary=pluginsToSuites,
                           backref=backref('pluginos', lazy='select'))
     stats = relationship('Status', cascade='all, delete-orphan')
+    sync_state = Column(Integer, default=1) # 0=synced, 1='new, 2=delete, 3=update
 
     def __init__(self, script, customname, **kwargs):
         self.script = script
@@ -96,6 +120,11 @@ class Plugin(RedBase):
 
     def APIGetDict(self, short=True):
         return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)
+
+    def generateJobName(self):
+        return "{0};{1};{2}s".format(self.script,
+                                     self.customname,
+                                     self.interval)
 
 class Host(RedBase):
     __tablename__ = 'host'
@@ -202,8 +231,9 @@ class Subnet(RedBase):
     __tablename__ = 'subnet'
     paramsShort = ['id', 'name']
     paramsFull = paramsShort + ['subnet', 'netmask', 'description','host',
-                                'suite']
+                                'suite', 'auto_discovery', 'interval']
     id = Column(Integer, primary_key=True)
+    UUID = Column(String(36), unique=True, default=tools.getUniqueID)
     name = Column(String(100), unique=True)
     subnet = Column(String(100))
     netmask = Column(String(100))
@@ -211,6 +241,9 @@ class Subnet(RedBase):
     host = relationship('Host', back_populates='subnet')
     suite_id = Column(Integer, ForeignKey('suite.id'))
     suite = relationship('Suite')
+    auto_discovery = Column(Boolean(), default=False)
+    interval = Column(Integer, default=1800)
+    sync_state = Column(Integer, default=1)
 
     def __init__(self, name, subnet, netmask, **kwargs):
         self.name = name
@@ -230,3 +263,8 @@ class Subnet(RedBase):
 
     def APIGetDict(self, short=True):
         return self.SQLA2Dict(self.paramsShort if short else self.paramsFull)
+
+    def generateJobName(self):
+        return "{0};{1};{2}s".format(self.name,
+                                     self.subnet,
+                                     self.interval)

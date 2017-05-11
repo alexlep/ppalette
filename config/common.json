@@ -2,7 +2,9 @@
   "development" : true,
   "pid_path" : "/run",
   "redapi_server" : "tornado",
-  "mon_engine" : "rrdm",
+  "mon_engine" : "influxdbm",
   "mon_plugin_path" : "./core/monitoring",
-  "custom_checks_path" : "./custom/plugins"
+  "custom_checks_path" : "./custom/plugins",
+  "hist_engine" : "influxdbh",
+  "hist_plugin_path" : "./core/history"
 }

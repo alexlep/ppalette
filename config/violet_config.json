@@ -1,6 +1,6 @@
 {
-  "process_count" : 2,
-  "threads_per_process" : 8,
+  "process_count" : 6,
+  "threads_per_process" : 128,
   "queue" : {
     "host" : "localhost",
     "port" : 5672,

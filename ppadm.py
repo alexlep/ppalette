@@ -5,8 +5,8 @@ Usage:
   ppadm.py add host --ipaddress=<ip> [--hostname=<hostname>] [--suite=<suitename>] [--subnet=<subnetname>] [--history=(on|off)] [--login=<login>]
   ppadm.py edit host --ipaddress=<ip> [--hostname=<hostname>] [--suite=<suitename>] [--subnet=<subnetname>] [--history=(on|off)] [--maintenance=(on|off)] [--login=<login>]
   ppadm.py (get|delete) subnet --name=<name>
-  ppadm.py add subnet --name=<name> --subnet=<subnet> --netmask=<netmask> [--suite=<suite>]
-  ppadm.py edit subnet --name=<name> [--suite=<suitename>] [--subnet=<subnetname>] [--netmask=<netmask>]
+  ppadm.py add subnet --name=<name> --subnet=<subnet> --netmask=<netmask> [--suite=<suite>] [--autodisc=(on|off)] [--interval=<interval>]
+  ppadm.py edit subnet --name=<name> [--suite=<suitename>] [--subnet=<subnetname>] [--netmask=<netmask>] [--autodisc=(on|off)] [--discint=<interval>]
   ppadm.py list (hosts|subnets|plugins|suites) [--page=<page>]
   ppadm.py ops discovery --subnet=<subnet>
   ppadm.py show (status|scheduler|workers)

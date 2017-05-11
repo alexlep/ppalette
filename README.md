@@ -1,8 +1,7 @@
 ## Synopsis
 
 The aim of the project is to create nagios-like monitoring tool, which can be
-scaled easily, and uses SQL database to store configuration data and history,
-and RRD database files to store statistics.
+scaled easily.
 
 Scheduler sends checks to MQ, so load can be easily redistributed by
 simply launching client on new nodes.
@@ -12,7 +11,7 @@ manage it, so it was dropped in favor of RESTful API, which later can be
 used to create any interface, including web-client. Initial version of
 command-line tool for communication with API already available.
 
-Project is written in Python, 2.x branch.
+Project is written in Python2.7.
 
 **Misc**
 
@@ -116,9 +115,9 @@ _to be continued_
 
 TOBEDONE
 
-## TOBEDONE
+## TODO
 
-* discovery schedule
+* DONE: discovery schedule
 * alarm notifications
 * manual check launch, out of schedule
 * draft class for custom plugins

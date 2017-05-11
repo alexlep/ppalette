@@ -56,7 +56,7 @@ class apiSingleCallHandler(object):
         'Suite' : 'name',
         'Subnet' : 'name'
         }
-    def __init__(self, method, dbmodel, params, scheduler=None):
+    def __init__(self, method, dbmodel, params, scheduled=False):
         CHECK_MAPPER = {
             'Host' : self.parseParamsForHost,
             'Plugin' : self.parseParamsForPlugin,
@@ -73,10 +73,10 @@ class apiSingleCallHandler(object):
         self.params = params
         self.modelname = dbmodel.__name__
         self.edit = True if method == 'PUT' else False
-        self.scheduler = scheduler
         self.identificator = self.ID_MAPPER.get(self.modelname)
         self.checker = CHECK_MAPPER.get(self.modelname)
         self.handler = REQUEST_MAPPER.get(method)
+        self.scheduled = scheduled
 
     def run(self):
         return self.handler()
@@ -114,10 +114,6 @@ class apiSingleCallHandler(object):
             db_session.rollback()
             res = dict(message=e.message)
             exitcode = 501
-        # object related hooks
-        if self.scheduler:
-            if exitcode == 200:
-                self.scheduler.registerJob(newRecord)
         return (res, exitcode)
 
     def apiCommonPutRequest(self):
@@ -139,6 +135,8 @@ class apiSingleCallHandler(object):
                 res = dict(message=ve.message)
                 return (res, 400)
             record.updateParams(**params_checked)
+            if self.scheduled:
+                record.markForUpdate()
             db_session.add(record)
             try:
                 db_session.commit()
@@ -164,18 +162,21 @@ class apiSingleCallHandler(object):
             exitcode = 404
         else:
             try:
-                db_session.delete(record)
+                if self.scheduled:
+                    record.markForDelete()
+                    message = "{0} {1} marked for "\
+                              "deletion".format(self.modelname,
+                                                value)
+                else:
+                    db_session.delete(record)
+                    message = '{0} {1} was deleted'.format(self.modelname,
+                                                           value)
                 db_session.commit()
-                res = dict(message='{0} {1} was deleted'.\
-                           format(self.modelname, value))
+                res = dict(message=message)
                 exitcode = 200
             except Exception as e:
                 res = dict(message=e.message)
                 exitcode = 501
-        # object related hooks
-        if self.scheduler:
-            if exitcode == 200:
-                self.scheduler.remove_job(record.pluginUUID)
         return (res, exitcode)
 
     def parseParamsForPlugin(self):
@@ -262,6 +263,10 @@ class apiSingleCallHandler(object):
                 res.update(suite_id=suiteDB.id)
             else:
                 raise ValueError("Suite {} not found in db".format(suite))
+        res.update(auto_discovery=apiValidateTriggerParam('autodisc',
+                                                         self.params))
+        res.update(interval=apiValidateIntegerParam('interval',
+                                                              self.params))
         return res
 
     def genRecList(self, IDs, dbmodel):

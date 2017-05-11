@@ -152,7 +152,8 @@ class apiTestClass(unittest.TestCase):
         # get_removed_plugin check_mysql_linux_test, should be 404
         params = dict(customname='check_mysql_linux_test')
         result = self.app.get(pv.PLUGIN, data=params)
-        self.assertEqual(result.status_code, 404)
+        self.assertEqual(result.status_code, 200)
+        assert '"sync_state": 2' in result.data
 
     def test1400(self):
         # post_create_plugin

@@ -12,7 +12,8 @@ class CommonStats(object):
     data_sources = ['checks_ok', 'checks_warn',
                     'checks_error', 'checks_all',
                     'checks_active', 'hosts_all',
-                    'hosts_active_up', 'checks_incorrect'
+                    'hosts_active_up', 'checks_incorrect',
+                    'ram_used'
                     ]
 
     def __init__(self, db_session):
@@ -86,11 +87,11 @@ class Stats(object):
     connection_time = None
     last_update_time = None
     ram_used = None
-    raw_amount = None
     data_sources = ['worker_count', 'worker_alive',
                     'consumers_count', 'consumers_alive',
                     'publishers_count','publishers_alive',
                     'input_queue_size', 'throughput',
+                    'ram_used'
                     ]
 
     def __init__ (self, data = dict(), fromJSON = False):

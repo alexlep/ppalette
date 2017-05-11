@@ -1,8 +1,7 @@
-import sys
-from flask import Blueprint, abort, jsonify, request, url_for
+from flask import Blueprint, jsonify, request
 
 from mq import MQ
-from tools import Message, getListOfIPs
+from tools import Message, prepareDiscoveryMessages
 from models import Host, Subnet, Plugin, History, Suite, Status
 from apitools import apiSingleCallHandler, apiListCallHandler,\
                      apiMonitoringHandler
@@ -124,7 +123,7 @@ def initRedApiBP(scheduler):
         handler = apiSingleCallHandler(method=request.method,
                                        dbmodel=Plugin,
                                        params=request.form,
-                                       scheduler=scheduler)
+                                       scheduled=True)
         res, exitcode = handler.run()
         return jsonify(**res), exitcode
 
@@ -167,7 +166,8 @@ def initRedApiBP(scheduler):
         """
         handler = apiSingleCallHandler(method=request.method,
                                        dbmodel=Subnet,
-                                       params=request.form)
+                                       params=request.form,
+                                       scheduled=True)
         res, exitcode = handler.run()
         return jsonify(**res), exitcode
 
@@ -196,14 +196,8 @@ def initRedApiBP(scheduler):
     def performDiscovery(subnetname):
         subnet = Subnet.query.filter_by(name=subnetname).first()
         if subnet:
-            ipaddresses = getListOfIPs(subnet.subnet, subnet.netmask)
-            for ipaddress in ipaddresses:
-                discoveryJob = Message(subnet=subnet)
-                discoveryJob.ipaddress = str(ipaddress)
-                discoveryJob.action = 'discovery'
-                discoveryJob.type = 'task'
-                apiMQ.sendM(redApiOutChannel,
-                            discoveryJob.tojson())
+            for discJob in prepareDiscoveryMessages(subnet):
+                apiMQ.sendM(redApiOutChannel, discJob)
             res = dict(message='Discovery request for {} was sent to clients'.\
                        format(subnetname))
             exitcode = 200

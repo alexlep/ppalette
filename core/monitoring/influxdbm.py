@@ -61,7 +61,7 @@ class Monitor(BaseMonitoring):
         client = prepareCli()
         if self.violetID:
             req = "SELECT {0} FROM \"{1}\" WHERE time > now() - {2}h "\
-                  "AND violetID='{3}'".format(','.join(self.paramsToFetch),
+                  "AND violetID='{3}'".format(','.join(Stats.data_sources),
                                                VIOLET_SN,
                                                hours,
                                                self.violetID)
@@ -69,7 +69,7 @@ class Monitor(BaseMonitoring):
             res = dict(res=list(rs.get_points()))
         else:
             req = "SELECT {0} FROM \"{1}\" WHERE time > now() - {2}h".\
-                  format(','.join(self.paramsToFetch),
+                  format(','.join(CommonStats.data_sources),
                          COMMON_SN,
                          hours)
             rs = client.query(req)
@@ -79,15 +79,17 @@ class Monitor(BaseMonitoring):
     def getLatestUpdate(self):
         client = prepareCli()
         if self.violetID:
-            req = "SELECT {0} FROM \"{1}\" WHERE violetID='{2}' LIMIT 1".\
-                  format(','.join(self.paramsToFetch),
+            req = "SELECT LAST({0}),{1} FROM \"{2}\" WHERE violetID='{3}'".\
+                  format(Stats.data_sources[0],
+                         ','.join(Stats.data_sources[1:]),
                          VIOLET_SN,
                          self.violetID)
             rs = client.query(req)
             res = dict(res=list(rs.get_points()))
         else:
-            req = "SELECT {0} FROM \"{1}\" LIMIT 1".\
-                  format(','.join(self.paramsToFetch),
+            req = "SELECT LAST({0}),{1} FROM \"{2}\"".\
+                  format(CommonStats.data_sources[0],
+                         ','.join(CommonStats.data_sources[1:]),
                          COMMON_SN)
             rs = client.query(req)
             res = dict(res=list(rs.get_points()))

@@ -40,7 +40,7 @@ class Message(object):
         if data:
             self.__dict__.update(data)
         if plugin:
-            self.pluginUUID = plugin.pluginUUID
+            self.pluginUUID = plugin.UUID
             self.plugin_id = plugin.id
             self.interval = plugin.interval
             self.ssh_wrapper = plugin.ssh_wrapper
@@ -91,7 +91,7 @@ class Message(object):
     def getHistoryDict(self):
         res = dict()
         for key in self.history_keys:
-            res[key] = self.__dict__.get(key)
+            res[key] = getattr(self, key)
         return res
 
 class draftClass:
@@ -107,14 +107,14 @@ class draftClass:
     def expandPaths(self):
         for key in self.__dict__.keys():
             try:
-                self.__dict__[key] = os.path.expanduser(self.__dict__[key])
+                setattr(self, key, os.path.expanduser(getattr(self, key)))
             except:
                 pass
 
 def time_wrap(func):
     def func_wrapper(*args, **kwargs):
         data = func(*args, **kwargs)
-        data.exec_time = dateToStr(dt.datetime.now())
+        data.exec_time = dateToStr()
         return data
     return func_wrapper
 
@@ -305,3 +305,18 @@ def getPluginModule(plugin, plugPath, logger):
                                                                 plugPath))
         sys.exit(1)
     return imp.load_module(plugin, *mod)
+
+def prepareDiscoveryMessages(sn):
+    now = dateToStr()
+    for ipaddress in getListOfIPs(sn.subnet, sn.netmask):
+        discoveryJob = Message(subnet=sn)
+        discoveryJob.ipaddress = str(ipaddress)
+        discoveryJob.action = 'discovery'
+        discoveryJob.type = 'task'
+        discoveryJob.scheduled_time = now
+        yield discoveryJob.tojson()
+
+def prepareStartTime(delta):
+    startDelay = dt.timedelta(0, delta)
+    initTime = dt.datetime.now()
+    return initTime + startDelay

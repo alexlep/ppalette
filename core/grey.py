@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 import time
-from datetime import datetime
 from sqlalchemy import update, insert, and_
 from database import db_session
-from models import Status, History, Subnet, Host, Suite, Plugin
+from models import Status, Host, Plugin
 from mq import MQ
-from tools import getUniqueID, Message, getPluginModule
+from tools import Message, getPluginModule
 from processing import Consumer
 from configs import gConfig, gLogger, cConfig
 from monitoring.base import Stats, CommonStats
@@ -13,6 +12,11 @@ from monitoring.base import Stats, CommonStats
 monit = getPluginModule(cConfig.mon_engine,
                         cConfig.mon_plugin_path,
                         gLogger)
+
+if gConfig.collect_history:
+    hist = getPluginModule(cConfig.hist_engine,
+                            cConfig.hist_plugin_path,
+                            gLogger)
 
 class Grey(object):
     def __init__(self, configFile, testing=False):
@@ -95,9 +99,12 @@ class Grey(object):
             pass
 
     def updateHistory(self, msg):
-        h = History(msg)
-        db_session.add(h)
-        db_session.commit()
+        histInst = hist.History()
+        histInst.insertValues(msg)
+        #print histInst.getValues(hostID=1, pluginID=4)
+        #h = History(msg)
+        #db_session.add(h)
+        #db_session.commit()
 
     def tryAddingNewHost(self, msg):
         if msg.exitcode == 0:

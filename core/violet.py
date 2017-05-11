@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
+import resource
 
 from configs import vConfig, vLogger
 from mq import MQ
@@ -23,7 +24,6 @@ class Violet(object):
         self.factory.startWork()
         self._startMonitoring()
 
-
     def destruct(self, signum, frame):
         self.factory.goHome()
         vLogger.info('Factory was closed.')
@@ -34,6 +34,8 @@ class Violet(object):
     def _prepareStats(self, interval):
         stats = self.factory.gatherStats()
         stats.interval = interval
+        # in Kb
+        stats.ram_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         return stats.tojsonAll()
 
     def _startMonitoring(self):
