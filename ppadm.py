@@ -9,6 +9,7 @@ Usage:
   ppadm.py edit subnet --name=<name> [--suite=<suitename>] [--subnet=<subnetname>] [--netmask=<netmask>] [--autodisc=(on|off)] [--discint=<interval>]
   ppadm.py list (hosts|subnets|plugins|suites) [--page=<page>]
   ppadm.py ops discovery --subnet=<subnet>
+  ppadm.py ops singlecheck --plugin=<customname> --hostip=<hostIPaddress>
   ppadm.py show (status|scheduler|workers)
   ppadm.py show monitoring --type=<type> [--period=<period>]
   ppadm.py show monitoring --type=violet --violet_id=<violet_id> [--period=<period>]
@@ -31,7 +32,7 @@ from core.tools import parseConfig
 import logging
 from core.pvars import redConfigFile
 
-LOGLEVEL = "INFO"
+LOGLEVEL = "DEBUG"
 logging.basicConfig(stream=sys.stderr, level=getattr(logging, LOGLEVEL))
 
 config = parseConfig(redConfigFile)
@@ -52,7 +53,7 @@ request_types= {
 
 single_item = ['subnet', 'host', 'plugin', 'suite']
 list_items = ['subnets', 'plugins', 'suites', 'hosts']
-special = ['discovery']
+special = ['discovery', 'singlecheck']
 dynamic = ['status', 'monitoring', 'scheduler', 'workers']
 
 object_types = {

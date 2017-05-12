@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from mq import MQ
 from tools import Message, prepareDiscoveryMessages
 from models import Host, Subnet, Plugin, History, Suite, Status
+from database import db_session
 from apitools import apiSingleCallHandler, apiListCallHandler,\
                      apiMonitoringHandler
 import pvars as pv
@@ -13,7 +14,6 @@ PER_PAGE = 10
 def initRedApiBP(scheduler):
     redapiBP = Blueprint('redapi_blueprint', __name__)
     apiMQ = MQ(rConfig.queue)
-    redApiOutChannel = apiMQ.initOutRabbitPyChannel()
 
     @redapiBP.route(pv.MONITORING)
     def getMonitoring():
@@ -182,30 +182,18 @@ def initRedApiBP(scheduler):
 
     ############################################################################
 
-    @redapiBP.route(pv.DISCOVERY, methods=['GET'])
-    def runDiscovery():
-        subnet = request.form.get('subnet')
-        if subnet:
-            res, exitcode = performDiscovery(subnet)
-        else:
-            res = dict(message='Subnet parameter is not found'.\
-                       format(operation))
-            exitcode = 404
+    @redapiBP.route(pv.SINGLE, methods=['GET'])
+    def runSingleCheck():
+        pluginName = request.form.get('plugin')
+        hostIP = request.form.get('hostip')
+        res, exitcode = scheduler.pushSingleCheck(pluginName, hostIP)
         return jsonify(**res), exitcode
 
-    def performDiscovery(subnetname):
-        subnet = Subnet.query.filter_by(name=subnetname).first()
-        if subnet:
-            for discJob in prepareDiscoveryMessages(subnet):
-                apiMQ.sendM(redApiOutChannel, discJob)
-            res = dict(message='Discovery request for {} was sent to clients'.\
-                       format(subnetname))
-            exitcode = 200
-        else:
-            res = dict(message='Discovery cancelled - {} not found in db'.\
-                       format(subnetname))
-            exitcode = 404
-        return res, exitcode
+    @redapiBP.route(pv.DISCOVERY, methods=['GET'])
+    def runDiscovery():
+        subnetname = request.form.get('subnet')
+        res, exitcode = scheduler.sendDiscoveryFromAPI(subnetname)
+        return jsonify(**res), exitcode
 
     return redapiBP
 

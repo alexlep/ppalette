@@ -23,6 +23,7 @@ DISCOVERY = prefix + '/discovery'
 SCHEDULER = prefix + '/scheduler'
 WORKERS = prefix + '/workers'
 MONITORING = prefix + '/monitoring'
+SINGLE = prefix + '/singlecheck'
 
 #
 defTimeFormat = "%H:%M:%S:%d:%m:%Y"

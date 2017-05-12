@@ -1,10 +1,11 @@
 from apscheduler.jobstores.base import JobLookupError, ConflictingIdError
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy import and_
 
 from tools import Message, getUniqueID, dateToStr, prepareDiscoveryMessages,\
                   prepareStartTime
 from mq import MQ
-from models import Plugin, Host, Subnet
+from models import Plugin, Host, Subnet, Suite
 from database import db_session
 from configs import rConfig, rLogger
 
@@ -136,20 +137,34 @@ class Scheduler(BackgroundScheduler):
         for suite in plugin.suites:
             for host in suite.hosts:
                 if not host.maintenance:
-                    checkJob = Message(plugin=plugin, host=host,
-                                       suite=suite)
-                    checkJob.type = 'check'
-                    checkJob.scheduled_time = now
-                    checkJob.message_id = getUniqueID()
+                    checkJob = self._prepareSingleCheck(plugin=plugin,
+                                                       host=host,
+                                                       suite=suite,
+                                                       schTime=now)
                     self.sendCommonJobToMQ(checkJob)
                     counter += 1
         rLogger.debug("Plugin {0}, interval {1}, sent {2} check to RMQ".\
                      format(plugin.customname, plugin.interval, str(counter)))
 
+    def _prepareSingleCheck(self, plugin, suite, host, schTime=None):
+        checkJob = Message(plugin=plugin,
+                           host=host,
+                           suite=suite)
+        checkJob.type = 'check'
+        checkJob.message_id = getUniqueID()
+        if not schTime:
+            checkJob.scheduled_time = dateToStr()
+        else:
+            checkJob.scheduled_time = schTime
+        return checkJob
+
     def sendDiscoveryRequest(self, subnetUUID):
         subnet = Subnet.query.filter(Subnet.UUID == subnetUUID).first()
+        self.pushDiscovery(subnet)
+
+    def pushDiscovery(self, subnet):
         for discJob in prepareDiscoveryMessages(subnet):
-            self.MQ.sendM(self.mqDiscOutChannel, discoveryJob)
+            self.MQ.sendM(self.mqDiscOutChannel, discJob)
 
     ### --------------------------------------
     def sendCommonJobToMQ(self, jobMessage):
@@ -158,3 +173,44 @@ class Scheduler(BackgroundScheduler):
 
     def getApiHostPortConfig(self):
         return (rConfig.webapi.host, rConfig.webapi.port)
+
+    def getSinglePlugin(self, pluginName, hostIP):
+        return db_session.query(Plugin, Suite, Host).\
+                                join((Suite, Plugin.suites)).\
+                                join((Host, Suite.hosts)).\
+                                filter(and_(Plugin.customname == pluginName,
+                                       Host.ipaddress == hostIP)).first()
+
+    def pushSingleCheck(self, pluginName, hostIP):
+        """
+        Should be executed on API call
+        """
+        inst = self.getSinglePlugin(pluginName, hostIP)
+        if inst:
+            plug, suite, host = inst
+            if host.maintenance:
+                return dict(message='host is under maintenance. Rejected'), 401
+            single = self._prepareSingleCheck(plugin=plug,
+                                             suite=suite,
+                                             host=host)
+            self.sendCommonJobToMQ(single)
+            res = dict(message="Single check for {}/{} was sent."\
+                               .format(pluginName, hostIP))
+            exitcode = 200
+        else:
+            res = dict(message="Plugin/host relation not found in DB")
+            exitcode = 404
+        return res, exitcode
+
+    def sendDiscoveryFromAPI(self, subnetname):
+        subnet = Subnet.query.filter(Subnet.name == subnetname).first()
+        if subnet:
+            self.pushDiscovery(subnet)
+            res = dict(message='Discovery request for {} was sent to clients'.\
+                       format(subnetname))
+            exitcode = 200
+        else:
+            res = dict(message='Discovery cancelled - {} not found in db'.\
+                       format(subnetname))
+            exitcode = 404
+        return res, exitcode

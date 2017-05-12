@@ -119,7 +119,7 @@ TOBEDONE
 
 * DONE: discovery schedule
 * alarm notifications
-* manual check launch, out of schedule
+* DONE: manual check launch, out of schedule
 * draft class for custom plugins
 * rethink monitoring module - influxdb or alternatives
 * correct history collection - influxdb or alternatives
