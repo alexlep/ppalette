@@ -47,3 +47,10 @@ def init_db(create_tables=False):
         print e
         connected = None
     return connected
+
+def clearDBConnection(func):
+    def func_wrapper(*args, **kwargs):
+        data = func(*args, **kwargs)
+        db_session.remove()
+        return data
+    return func_wrapper

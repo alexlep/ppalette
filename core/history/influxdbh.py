@@ -3,7 +3,6 @@ from influxdb import InfluxDBClient
 from influxdb import SeriesHelper
 
 from core.tools import Message
-from base import BaseMonitoring, CommonStats, Stats
 
 host = 'localhost'
 port = 8086

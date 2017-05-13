@@ -7,7 +7,7 @@ from multiprocessing import Process, Manager
 from concurrent.futures import ThreadPoolExecutor
 
 import tools
-from monitoring.base import Stats
+from monitoring.violetstats import Stats
 from configs import vLogger
 
 class ProcessingException(Exception):

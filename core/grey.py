@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import time
 from sqlalchemy import update, insert, and_
-from database import db_session
+from database import db_session, clearDBConnection
 from models import Status, Host, Plugin
 from mq import MQ
 from tools import Message, getPluginModule
 from processing import Consumer
 from configs import gConfig, gLogger, cConfig
-from monitoring.base import Stats, CommonStats
+from monitoring.violetstats import Stats
+from monitoring.commonstats import CommonStats
 
 monit = getPluginModule(cConfig.mon_engine,
                         cConfig.mon_plugin_path,
@@ -20,7 +21,7 @@ if gConfig.collect_history:
 
 class Grey(object):
     def __init__(self, configFile, testing=False):
-        self.status = CommonStats(db_session)
+        self.status = CommonStats()
         self.active = True
         self.commonMonit = monit.Monitor()
         if not testing:
@@ -46,7 +47,9 @@ class Grey(object):
         for c in self.consumers:
             c.stop()
         self.mConsumer.stop()
+        db_session.close()
 
+    @clearDBConnection
     def callback(self, body):
         gLogger.debug("Received message {}".format(body))
         msg = Message(body, fromJSON=True)
@@ -78,6 +81,7 @@ class Grey(object):
         gLogger.info("Updated common stats. Overall checks {0}"\
                      " , OK state {1}".format(self.status.checks_all,
                                               self.status.checks_ok))
+
 
     def updateStatusTable(self, msg):
         statusRecord = db_session.query(Status).\

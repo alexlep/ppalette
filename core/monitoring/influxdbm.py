@@ -3,7 +3,9 @@ from influxdb import InfluxDBClient
 from influxdb import SeriesHelper
 
 from core.pvars import defTimeFormat, workingDir
-from base import BaseMonitoring, CommonStats, Stats
+from base import BaseMonitoring
+from commonstats import CommonStats
+from violetstats import Stats
 
 host = 'localhost'
 port = 8086

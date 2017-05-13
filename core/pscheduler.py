@@ -6,7 +6,7 @@ from tools import Message, getUniqueID, dateToStr, prepareDiscoveryMessages,\
                   prepareStartTime
 from mq import MQ
 from models import Plugin, Host, Subnet, Suite
-from database import db_session
+from database import db_session, clearDBConnection
 from configs import rConfig, rLogger
 
 class Scheduler(BackgroundScheduler):
@@ -34,6 +34,10 @@ class Scheduler(BackgroundScheduler):
         if db_session.dirty or db_session.deleted:
             db_session.commit()
 
+    def _dbClearSession(self):
+        db_session.remove()
+
+    @clearDBConnection
     def fillSchedule(self):
         """
         """
@@ -82,8 +86,9 @@ class Scheduler(BackgroundScheduler):
         self._syncRecords(Plugin.query.filter(Plugin.sync_state!=0))
         self._syncRecords(Subnet.query.filter(Subnet.auto_discovery==True,
                                               Subnet.sync_state!=0))
-        self._dbCommitIfDirty()
+        #self._dbCommitIfDirty()
 
+    @clearDBConnection
     def _syncRecords(self, records):
         """If item is new (sync_state=1) - adding to scheduler.
         If it's marked for delete (sync_state=2), we are deleting job from
@@ -130,6 +135,7 @@ class Scheduler(BackgroundScheduler):
         self.add_job(self.jobMapper.get(item.__class__.__name__),
                      **job_params)
 
+    @clearDBConnection
     def sendPluginJobsToMQ(self, pluginUUID):
         counter = 0
         now = dateToStr()
@@ -181,6 +187,7 @@ class Scheduler(BackgroundScheduler):
                                 filter(and_(Plugin.customname == pluginName,
                                        Host.ipaddress == hostIP)).first()
 
+    @clearDBConnection
     def pushSingleCheck(self, pluginName, hostIP):
         """
         Should be executed on API call
@@ -202,6 +209,7 @@ class Scheduler(BackgroundScheduler):
             exitcode = 404
         return res, exitcode
 
+    @clearDBConnection
     def sendDiscoveryFromAPI(self, subnetname):
         subnet = Subnet.query.filter(Subnet.name == subnetname).first()
         if subnet:
